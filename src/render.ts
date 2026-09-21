@@ -1,9 +1,8 @@
 import type { Player, Bullet, Core, PlayerBullet } from "./game/entities.js";
 
 // カスタム絵文字画像のプリロード・キャッシュ。
-// 同じURLの画像を何度もロードし直さないようにする(企画書§8「同じ絵文字について
-// 何度も情報取得しない」)。ショートコード名ではなくURLをキーにする
-// (連合先が異なると同じショートコードでも別画像になりうるため)。
+// 同じURLの画像を何度もロードし直さないようにする。ショートコード名ではなく
+// URLをキーにする(連合先が異なると同じショートコードでも別画像になりうるため)。
 const imageCache = new Map<string, HTMLImageElement>();
 
 // まだロード中の画像は、ロード完了まで描画をスキップしたいのでMapの値には常に
@@ -26,9 +25,23 @@ export function isImageReady(img: HTMLImageElement): boolean {
   return img.complete && img.naturalWidth > 0;
 }
 
-export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[]): void {
+// 残機回復弾だけ緑色のグローを添えて、「これは避けるのではなく取りに行く弾」だと
+// 一目で分かるようにする。
+export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[], now: number): void {
   for (const b of bullets) {
     if (!isImageReady(b.img)) continue;
+
+    if (b.isLifeUp) {
+      const pulse = 0.6 + 0.4 * Math.sin(now / 120);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size * 0.75, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(110, 255, 160, ${0.35 * pulse})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(110, 255, 160, ${0.9 * pulse})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
     ctx.drawImage(b.img, b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
   }
 }
@@ -68,8 +81,21 @@ export function drawPlayerBullets(ctx: CanvasRenderingContext2D, bullets: readon
   ctx.shadowBlur = 0;
 }
 
+const TIER_RING_COLOR: Record<Core["tier"], string> = {
+  weak: "rgba(160, 170, 180, 0.7)",
+  mid: "rgba(124, 247, 255, 0.8)",
+  strong: "rgba(255, 110, 110, 0.85)",
+};
+
 // コア(Misskeyの投稿流を弾幕として放つボス役)と、その上のHPバーを描画する。
+// 階級(弱/中/強)ごとに縁取りの色を変え、見た目でも区別できるようにする。
 export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
+  ctx.beginPath();
+  ctx.arc(core.x, core.y, core.spriteSize / 2 + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = TIER_RING_COLOR[core.tier];
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
   if (isImageReady(core.img)) {
     ctx.drawImage(
       core.img,

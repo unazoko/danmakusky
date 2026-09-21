@@ -1,5 +1,4 @@
-// 最高スコアのみをlocalStorageへ保存する(企画書§28、MVPでは最高スコア程度でよい)。
-// サーバーには一切保存しない。
+// 最高スコアのみをlocalStorageへ保存する。サーバーには一切保存しない。
 const HIGH_SCORE_KEY = "danmakusky-high-score";
 
 export function getHighScore(): number {

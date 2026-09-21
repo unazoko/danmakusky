@@ -15,6 +15,24 @@ body {
     overflow: hidden;
 }
 
+/* 全画面に常時薄いスキャンラインを重ねる飾り(判定や描画には一切関与しない、
+   body直下の固定オーバーレイ)。 */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(124, 247, 255, 0.05) 0px,
+        rgba(124, 247, 255, 0.05) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+    mix-blend-mode: overlay;
+}
+
 .screen {
     position: fixed;
     inset: 0;
@@ -47,6 +65,13 @@ body {
 .tagline {
     margin: 0;
     color: #8fa3ad;
+}
+/* 何の意味もないバージョン表記風の飾り(はったり)。 */
+.fake-readout {
+    margin: 0;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: #3d5560;
 }
 .instance-label {
     display: flex;
@@ -89,8 +114,8 @@ body {
     /* position/inset/displayは.screen側で既に指定済み。ここで(IDセレクタで)
        display:flex等を重複指定すると、.screen[hidden]{display:none}より詳細度が
        高くなってhidden属性を上書きしてしまい、タイトル画面の上に透明な
-       #gameScreenが常時かぶってstartボタンを押せなくなる不具合が起きる
-       (実際に発生した不具合)。displayを再指定しないよう、揃えの指定だけ足す。 */
+       #gameScreenが常時かぶってstartボタンを押せなくなる。displayを再指定
+       しないよう、揃えの指定だけ足す。 */
     align-items: center;
     justify-content: center;
 }
@@ -120,9 +145,41 @@ body {
     flex-direction: column;
     gap: 2px;
 }
+.hud-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+/* 見た目だけのハッタリ数値。常に細かく揺れ続けているだけで、
+   難易度計算には一切使われていない。 */
+.hud-fake {
+    font-size: 0.65rem;
+    color: #3d5560;
+    letter-spacing: 0.03em;
+}
 
-/* 起動時の演出用オーバーレイ(企画書§23)。裏側では既にゲームが動き出して
-   いてよく、あくまで見た目だけの飾り。 */
+/* ランダムで挟む、意味のない一言演出。プレイの邪魔にならないよう、
+   画面中央上寄りに一瞬だけ薄く出す程度に留める。 */
+.glitch-overlay {
+    position: absolute;
+    top: 16%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #f0c100;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 8px rgba(240, 193, 0, 0.7);
+    opacity: 0.85;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.glitch-overlay[hidden] {
+    display: none;
+}
+
+/* 起動時の演出用オーバーレイ。裏側では既にゲームが動き出していてよく、
+   あくまで見た目だけの飾り。 */
 .boot-sequence {
     position: absolute;
     inset: 0;
@@ -146,7 +203,7 @@ body {
     opacity: 0;
 }
 
-/* ストリーム流速が生成上限を超えたときの警告表示(企画書§23)。 */
+/* ストリーム流速が生成上限を超えたときの警告表示。 */
 .density-warning {
     position: absolute;
     top: 40%;
@@ -170,6 +227,77 @@ body {
     to {
         opacity: 1;
     }
+}
+
+/* コア出現時のカットイン演出(東方Project的なボス登場演出)。
+   中ボス・強ボスの出現時だけ画面右から一瞬スライドインしてくる(main.ts参照)。
+   ゲームループ自体は裏で止めず、演出の間もプレイは続けられるようにする。 */
+.cut-in {
+    position: absolute;
+    top: 20%;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 24px;
+    background: linear-gradient(
+        90deg,
+        rgba(5, 6, 10, 0) 0%,
+        rgba(5, 6, 10, 0.88) 18%,
+        rgba(5, 6, 10, 0.88) 82%,
+        rgba(5, 6, 10, 0) 100%
+    );
+    border-top: 2px solid var(--cut-in-color, #7cf7ff);
+    border-bottom: 2px solid var(--cut-in-color, #7cf7ff);
+    transform: translateX(100%);
+    opacity: 0;
+    transition:
+        transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2),
+        opacity 0.25s ease;
+    pointer-events: none;
+    z-index: 500;
+}
+.cut-in[hidden] {
+    display: none;
+}
+.cut-in.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+.cut-in[data-tier="mid"] {
+    --cut-in-color: #7cf7ff;
+}
+.cut-in[data-tier="strong"] {
+    --cut-in-color: #ff6e6e;
+}
+.cut-in-img {
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 12px var(--cut-in-color, #7cf7ff));
+}
+.cut-in-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.cut-in-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--cut-in-color, #7cf7ff);
+    font-weight: bold;
+}
+.cut-in-name {
+    font-size: 1.3rem;
+    font-weight: bold;
+    letter-spacing: 0.03em;
+}
+.cut-in-quote {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #8fa3ad;
 }
 
 /* コア撃破時の短い演出メッセージ。 */
@@ -228,11 +356,14 @@ body {
     letter-spacing: 0.1em;
     color: #ff6e6e;
     text-shadow: 0 0 12px rgba(255, 110, 110, 0.6);
+    animation: density-pulse 0.6s ease-in-out infinite alternate;
 }
 .subtagline {
     margin: 0;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;
     color: #ff6e6e;
+    white-space: pre-line;
+    font-size: 0.85rem;
 }
 .cause-label {
     margin: 0;
@@ -242,11 +373,29 @@ body {
 }
 .cause-line {
     margin: 0;
-    font-size: 2.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 }
 .cause-emoji-img {
     width: 64px;
     height: 64px;
+}
+/* 死因のショートコードをそのまま煽り文句として大きく出す
+   (「CAUSE OF DEATH: おっぱい」のノリ)。 */
+.cause-shortcode {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #ff6e6e;
+    text-shadow: 0 0 10px rgba(255, 110, 110, 0.6);
+}
+.system-status-line {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: #8fa3ad;
+    font-style: italic;
 }
 .result-stats {
     display: flex;

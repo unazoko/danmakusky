@@ -1,6 +1,6 @@
-// 自機の操作。企画書§10 + 「東方Projectみたいな操作感にしたい」という要望に基づき、
-// PCはWASD/矢印キーでの8方向移動(Shiftで低速・精密移動する「低速(フォーカス)」を追加)、
-// スマートフォンはタッチ&ドラッグで自機を追従させる。
+// 自機の操作。PCはWASD/矢印キーでの8方向移動(Shiftで低速・精密移動する
+// 「低速(フォーカス)」を追加)、スマートフォンはタッチ&ドラッグで自機を
+// 追従させる。
 // 発射(自機の弾)はPCならZキー/スペースキー、スマホなら画面上の発射ボタン
 // (main.ts側でsetFireButtonHeldを呼ぶ)で行う。東方のZキー連射と同じ、
 // 押している間だけ発射する方式(自動連射ではない)。
@@ -50,7 +50,7 @@ export class InputController {
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
   }
 
-  // 自機の位置を1フレーム分更新する。画面外に出ないようclampする(企画書§10)。
+  // 自機の位置を1フレーム分更新する。画面外に出ないようclampする。
   update(player: Player, dtSec: number): void {
     if (this.dragging) {
       player.x = this.dragX;

@@ -8,8 +8,9 @@
   </head>
   <body>
     <div id="titleScreen" class="screen">
-      <h1>MISSKEY DANMAKU</h1>
-      <p class="tagline">Misskeyをゲーム機にする。</p>
+      <h1>DANMAKUSKY</h1>
+      <p class="tagline">リアルタイム カスタム絵文字弾幕ゲーム</p>
+      <p class="fake-readout">SYS-CORE v4.20 // AUTH: NONE // RISK: HIGH</p>
       <label class="instance-label">
         接続先インスタンス
         <input id="instanceInput" type="text" value="misskey.io" autocomplete="off" spellcheck="false" />
@@ -26,21 +27,34 @@
           <span id="hudLife">LIFE ♥♥♥</span>
           <span id="hudTime">TIME 00:00.0</span>
         </span>
-        <span id="hudStatus" class="hud-status"></span>
+        <span class="hud-right">
+          <span id="hudStatus" class="hud-status"></span>
+          <span id="hudFake" class="hud-fake"></span>
+        </span>
       </div>
       <div id="densityWarning" class="density-warning" hidden>
-        WARNING<br />STREAM DENSITY: HIGH<br />EMOJI OVERFLOW
+        ⚠ OVERFLOW WARNING ⚠<br />STREAM DENSITY: CRITICAL<br />EMOJI SATURATION: MAXIMUM
       </div>
       <div id="coreMessage" class="core-message" hidden></div>
+      <div id="glitchOverlay" class="glitch-overlay" hidden></div>
+      <div id="cutIn" class="cut-in" hidden>
+        <img id="cutInImg" class="cut-in-img" alt="" />
+        <div class="cut-in-text">
+          <span id="cutInLabel" class="cut-in-label"></span>
+          <span id="cutInName" class="cut-in-name"></span>
+          <span id="cutInQuote" class="cut-in-quote"></span>
+        </div>
+      </div>
       <div id="bootSequence" class="boot-sequence" hidden></div>
       <button id="fireButton" type="button" aria-label="発射"></button>
     </div>
 
     <div id="gameOverScreen" class="screen" hidden>
-      <h1>SYSTEM FAILURE</h1>
-      <p class="subtagline">PLAYER LOST</p>
+      <h1>CRITICAL FAILURE</h1>
+      <p id="gameOverIntro" class="subtagline"></p>
       <p class="cause-label">CAUSE OF DEATH</p>
       <p id="gameOverCause" class="cause-line"></p>
+      <p id="gameOverStatus" class="system-status-line"></p>
       <dl class="result-stats">
         <div><dt>SCORE</dt><dd id="resultScore">0</dd></div>
         <div><dt>TIME</dt><dd id="resultTime">00:00.0</dd></div>

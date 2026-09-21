@@ -1,7 +1,7 @@
-// 自機・弾のエンティティ定義。
+// 自機・弾・コアのエンティティ定義。
 // 自機・弾ともに見た目はカスタム絵文字画像そのものだが、当たり判定は見た目より
-// 大幅に小さい円にする(企画書§20「見た目では当たっているように見えるが実は
-// 避けている」状態を作れるようにする、東方Project由来の弾幕ゲームの定石)。
+// 大幅に小さい円にする。見た目では当たっているように見えても実際は避けられる
+// 状態を作れる、東方Project由来の弾幕ゲームの定石。
 
 export interface Player {
   x: number;
@@ -17,6 +17,26 @@ export interface Player {
   focused: boolean;
 }
 
+// 弾の飛び方。vx/vyは常に「今フレームの速度」として使い、位置更新
+// (x+=vx*dt)は共通処理で行う。behaviorの種類ごとに、毎フレームvx/vy
+// (・orbitのみ位置も直接)を更新する(game/bulletMotion.ts参照)。
+export type BulletBehavior =
+  // 直進のみ(発生時に決めた速度のまま)。直線弾・自機狙い弾はこれ。
+  | { kind: "linear" }
+  // ゆっくり追尾。毎フレーム、向きをプレイヤー方向へ少しずつ曲げる。
+  | { kind: "homing"; turnRateRadPerSec: number }
+  // 円運動。中心点の周りを一定角速度で回り続ける。
+  | { kind: "orbit"; centerX: number; centerY: number; radius: number; angle: number; angularSpeedRadPerSec: number }
+  // ジグザグ。基準方向に対して左右に周期的に振れる。
+  | { kind: "zigzag"; baseAngle: number; speed: number; amplitudeRad: number; angularFreq: number; startedAt: number }
+  // 急に方向転換。指定時刻まで直進し、その瞬間だけ新しい向きに切り替える。
+  | { kind: "redirect"; triggerAt: number; newAngle: number; speed: number; triggered: boolean }
+  // 一定時間停止してから急加速。指定時刻まで停止(速度ゼロ)し、その後は直進。
+  | { kind: "delayedAccel"; triggerAt: number; angle: number; speed: number; triggered: boolean }
+  // 複数方向への分裂。指定時刻に、その場で複数方向へ分裂した新しい弾を撒く
+  // (元の弾は消える)。
+  | { kind: "splitter"; triggerAt: number; splitCount: number; speed: number; triggered: boolean };
+
 export interface Bullet {
   id: number;
   img: HTMLImageElement;
@@ -28,12 +48,25 @@ export interface Bullet {
   size: number;
   hitRadius: number;
   spawnedAt: number;
+  behavior: BulletBehavior;
+  // trueなら「残機回復弾」。当たると残機が1増える(見た目も専用の演出で区別する)。
+  isLifeUp?: boolean;
+  // splitter等、寿命が尽きて次のフレームで消えるべき弾に立てるフラグ。
+  dead?: boolean;
 }
 
+// コアの強さの階級。
+// 弱: 複数体同時出現・移動する・HP低め・攻撃単調・弾少な目
+// 中: 位置固定・最大2体同時・弱よりHP高め・螺旋/同心円弾幕
+// 強: 移動する(単純な往復/円運動)・最大1体・HPが一番高い
+// 出現頻度は 弱 > 中 > 強。
+export type CoreTier = "weak" | "mid" | "strong";
+
 // Misskeyの投稿流を弾幕として放つ「コア」。東方のボスに相当する。
-// これを自機の弾で撃破しないと、投稿由来の弾幕が止まらない
-// (=撃破するまで弾が出続ける、企画書には無いが今回追加した要素)。
 export interface Core {
+  id: number;
+  tier: CoreTier;
+  shortcode: string;
   x: number;
   y: number;
   hp: number;
@@ -41,6 +74,14 @@ export interface Core {
   spriteSize: number;
   hitRadius: number;
   img: HTMLImageElement;
+  // 移動パターン用の状態(弱=ふらふら移動、強=往復or円運動、中=不使用)。
+  moveAngle: number;
+  moveOriginX: number;
+  moveOriginY: number;
+  spawnedAt: number;
+  nextAttackAt: number;
+  // 螺旋・連続回転攻撃用に積み上げていく角度(移動角とは別管理)。
+  attackAngle: number;
 }
 
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする
@@ -55,4 +96,9 @@ export interface PlayerBullet {
 let nextBulletId = 1;
 export function createBulletId(): number {
   return nextBulletId++;
+}
+
+let nextCoreId = 1;
+export function createCoreId(): number {
+  return nextCoreId++;
 }
