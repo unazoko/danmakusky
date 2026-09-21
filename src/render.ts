@@ -1,0 +1,93 @@
+import type { Player, Bullet, Core, PlayerBullet } from "./game/entities.js";
+
+// カスタム絵文字画像のプリロード・キャッシュ。
+// 同じURLの画像を何度もロードし直さないようにする(企画書§8「同じ絵文字について
+// 何度も情報取得しない」)。ショートコード名ではなくURLをキーにする
+// (連合先が異なると同じショートコードでも別画像になりうるため)。
+const imageCache = new Map<string, HTMLImageElement>();
+
+// まだロード中の画像は、ロード完了まで描画をスキップしたいのでMapの値には常に
+// HTMLImageElementそのものを入れ、呼び出し側はcomplete/naturalWidthを見て判定する。
+export function getOrLoadEmojiImage(url: string): HTMLImageElement {
+  const cached = imageCache.get(url);
+  if (cached) return cached;
+
+  // crossOriginは付けない: 当たり判定は座標同士の比較のみで行い、canvasから
+  // ピクセルを読み取る(getImageData等)ことはしないため、CORS許可は不要。
+  // 絵文字配信元がAccess-Control-Allow-Originを返さないケースは珍しくなく、
+  // crossOrigin="anonymous"を付けるとその場合に画像読み込み自体が失敗してしまう。
+  const img = new Image();
+  img.src = url;
+  imageCache.set(url, img);
+  return img;
+}
+
+export function isImageReady(img: HTMLImageElement): boolean {
+  return img.complete && img.naturalWidth > 0;
+}
+
+export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[]): void {
+  for (const b of bullets) {
+    if (!isImageReady(b.img)) continue;
+    ctx.drawImage(b.img, b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
+  }
+}
+
+// 自機は絵文字画像を中心に描画する。被弾直後の無敵中は点滅させて分かりやすくし、
+// 低速(フォーカス)中は東方同様に当たり判定の目安となる小さな点を重ねて表示する。
+export function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, now: number): void {
+  const isInvincible = now < player.invincibleUntil;
+  const blinkVisible = !isInvincible || Math.floor(now / 100) % 2 === 0;
+
+  if (blinkVisible && player.emojiImg && isImageReady(player.emojiImg)) {
+    ctx.drawImage(
+      player.emojiImg,
+      player.x - player.spriteSize / 2,
+      player.y - player.spriteSize / 2,
+      player.spriteSize,
+      player.spriteSize,
+    );
+  }
+
+  if (player.focused) {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.hitRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 110, 199, 0.9)";
+    ctx.fill();
+  }
+}
+
+// 自機の弾(単純な光弾。大量の絵文字弾と見分けやすくするため絵文字は使わない)。
+export function drawPlayerBullets(ctx: CanvasRenderingContext2D, bullets: readonly PlayerBullet[]): void {
+  ctx.fillStyle = "#7cf7ff";
+  ctx.shadowColor = "#7cf7ff";
+  ctx.shadowBlur = 6;
+  for (const b of bullets) {
+    ctx.fillRect(b.x - 2, b.y - 8, 4, 16);
+  }
+  ctx.shadowBlur = 0;
+}
+
+// コア(Misskeyの投稿流を弾幕として放つボス役)と、その上のHPバーを描画する。
+export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
+  if (isImageReady(core.img)) {
+    ctx.drawImage(
+      core.img,
+      core.x - core.spriteSize / 2,
+      core.y - core.spriteSize / 2,
+      core.spriteSize,
+      core.spriteSize,
+    );
+  }
+
+  const barWidth = core.spriteSize * 1.4;
+  const barHeight = 6;
+  const barX = core.x - barWidth / 2;
+  const barY = core.y - core.spriteSize / 2 - barHeight - 8;
+  const ratio = Math.max(core.hp / core.maxHp, 0);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+  ctx.fillStyle = ratio > 0.3 ? "#7cf7ff" : "#ff6e6e";
+  ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+}

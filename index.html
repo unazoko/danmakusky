@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <title>danmakusky</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="titleScreen" class="screen">
+      <h1>MISSKEY DANMAKU</h1>
+      <p class="tagline">Misskeyをゲーム機にする。</p>
+      <label class="instance-label">
+        接続先インスタンス
+        <input id="instanceInput" type="text" value="misskey.io" autocomplete="off" spellcheck="false" />
+      </label>
+      <button id="startButton" type="button">START</button>
+      <p id="titleError" class="error-text" hidden></p>
+    </div>
+
+    <div id="gameScreen" class="screen" hidden>
+      <canvas id="gameCanvas"></canvas>
+      <div id="hud" class="hud">
+        <span class="hud-left">
+          <span id="hudScore">SCORE 0</span>
+          <span id="hudLife">LIFE ♥♥♥</span>
+          <span id="hudTime">TIME 00:00.0</span>
+        </span>
+        <span id="hudStatus" class="hud-status"></span>
+      </div>
+      <div id="densityWarning" class="density-warning" hidden>
+        WARNING<br />STREAM DENSITY: HIGH<br />EMOJI OVERFLOW
+      </div>
+      <div id="coreMessage" class="core-message" hidden></div>
+      <div id="bootSequence" class="boot-sequence" hidden></div>
+      <button id="fireButton" type="button" aria-label="発射"></button>
+    </div>
+
+    <div id="gameOverScreen" class="screen" hidden>
+      <h1>SYSTEM FAILURE</h1>
+      <p class="subtagline">PLAYER LOST</p>
+      <p class="cause-label">CAUSE OF DEATH</p>
+      <p id="gameOverCause" class="cause-line"></p>
+      <dl class="result-stats">
+        <div><dt>SCORE</dt><dd id="resultScore">0</dd></div>
+        <div><dt>TIME</dt><dd id="resultTime">00:00.0</dd></div>
+      </dl>
+      <p id="highScoreLine" class="high-score-line"></p>
+      <div class="result-buttons">
+        <button id="retryButton" type="button">もう一度遊ぶ</button>
+        <button id="shareButton" type="button">Misskeyに結果を投稿</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

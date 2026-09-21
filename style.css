@@ -1,0 +1,293 @@
+* {
+    box-sizing: border-box;
+}
+html,
+body {
+    margin: 0;
+    height: 100%;
+    background: #05060a;
+    color: #d8f7ff;
+    font-family:
+        "Consolas",
+        "Courier New",
+        ui-monospace,
+        monospace;
+    overflow: hidden;
+}
+
+.screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+}
+/* ブラウザ標準の[hidden]{display:none}は属性セレクタ(詳細度0-1-0)で、
+   .screen(クラスセレクタ、同じ詳細度0-1-0)が後勝ちして上書きしてしまい、
+   hidden属性を付けても画面いっぱいのdisplay:flexのまま表示され続けていた
+   (#gameScreenが#titleScreenの上に重なり、全画面真っ黒に見える不具合の原因)。
+   詳細度を上げて確実にhidden属性を効かせる。 */
+.screen[hidden] {
+    display: none;
+}
+
+#titleScreen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+}
+#titleScreen h1 {
+    margin: 0;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: #7cf7ff;
+    text-shadow: 0 0 12px rgba(124, 247, 255, 0.6);
+}
+.tagline {
+    margin: 0;
+    color: #8fa3ad;
+}
+.instance-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #8fa3ad;
+}
+#instanceInput {
+    background: #0c1117;
+    border: 1px solid #2a3a42;
+    color: #d8f7ff;
+    padding: 8px 10px;
+    font: inherit;
+    border-radius: 4px;
+    min-width: 240px;
+    text-align: center;
+}
+#startButton {
+    background: #7cf7ff;
+    color: #05060a;
+    border: none;
+    padding: 10px 32px;
+    font: inherit;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#startButton:active {
+    transform: translateY(1px);
+}
+.error-text {
+    color: #ff6e6e;
+    margin: 0;
+    max-width: 32em;
+}
+
+#gameScreen {
+    /* position/inset/displayは.screen側で既に指定済み。ここで(IDセレクタで)
+       display:flex等を重複指定すると、.screen[hidden]{display:none}より詳細度が
+       高くなってhidden属性を上書きしてしまい、タイトル画面の上に透明な
+       #gameScreenが常時かぶってstartボタンを押せなくなる不具合が起きる
+       (実際に発生した不具合)。displayを再指定しないよう、揃えの指定だけ足す。 */
+    align-items: center;
+    justify-content: center;
+}
+#gameCanvas {
+    touch-action: none;
+    background: #05060a;
+    /* 背景と同色でプレイエリアの境目が分からなかったため、枠線+淡いグローで
+       境界を分かるようにする(HUD等と同じシアン系で統一)。 */
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    box-shadow: 0 0 24px rgba(124, 247, 255, 0.25);
+}
+.hud {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-size: 0.85rem;
+    color: #7cf7ff;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(124, 247, 255, 0.6);
+}
+.hud-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* 起動時の演出用オーバーレイ(企画書§23)。裏側では既にゲームが動き出して
+   いてよく、あくまで見た目だけの飾り。 */
+.boot-sequence {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(5, 6, 10, 0.92);
+    color: #7cf7ff;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 8px rgba(124, 247, 255, 0.6);
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+.boot-sequence[hidden] {
+    display: none;
+}
+.boot-sequence.fade-out {
+    opacity: 0;
+}
+
+/* ストリーム流速が生成上限を超えたときの警告表示(企画書§23)。 */
+.density-warning {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ff6e6e;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 10px rgba(255, 110, 110, 0.8);
+    pointer-events: none;
+    animation: density-pulse 0.6s ease-in-out infinite alternate;
+}
+.density-warning[hidden] {
+    display: none;
+}
+@keyframes density-pulse {
+    from {
+        opacity: 0.6;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* コア撃破時の短い演出メッセージ。 */
+.core-message {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #f0c100;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 10px rgba(240, 193, 0, 0.8);
+    pointer-events: none;
+}
+.core-message[hidden] {
+    display: none;
+}
+
+/* スマホ用の発射ボタン。自機移動(canvasドラッグ)と competing しないよう、
+   画面右下の隅に固定する。PCではZ/スペースキーで代用できるので、
+   タッチ環境向けの補助という位置づけ。 */
+#fireButton {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 2px solid rgba(124, 247, 255, 0.6);
+    background: rgba(124, 247, 255, 0.15);
+    touch-action: none;
+}
+#fireButton::before {
+    content: "FIRE";
+    display: block;
+    color: #7cf7ff;
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+#fireButton:active {
+    background: rgba(124, 247, 255, 0.35);
+}
+
+#gameOverScreen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    padding: 24px;
+}
+#gameOverScreen h1 {
+    margin: 0;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: #ff6e6e;
+    text-shadow: 0 0 12px rgba(255, 110, 110, 0.6);
+}
+.subtagline {
+    margin: 0;
+    letter-spacing: 0.15em;
+    color: #ff6e6e;
+}
+.cause-label {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: #8fa3ad;
+}
+.cause-line {
+    margin: 0;
+    font-size: 2.4rem;
+}
+.cause-emoji-img {
+    width: 64px;
+    height: 64px;
+}
+.result-stats {
+    display: flex;
+    gap: 32px;
+    margin: 0;
+}
+.result-stats dt {
+    font-size: 0.75rem;
+    color: #8fa3ad;
+}
+.result-stats dd {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #7cf7ff;
+}
+.high-score-line {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #f0c100;
+    letter-spacing: 0.05em;
+}
+.result-buttons {
+    display: flex;
+    gap: 12px;
+}
+#retryButton,
+#shareButton {
+    background: #7cf7ff;
+    color: #05060a;
+    border: none;
+    padding: 10px 24px;
+    font: inherit;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#shareButton {
+    background: #f0c100;
+}
+#retryButton:active,
+#shareButton:active {
+    transform: translateY(1px);
+}
