@@ -110,6 +110,92 @@ body::before {
     max-width: 32em;
 }
 
+.controls-help {
+    background: rgba(124, 247, 255, 0.05);
+    border: 1px solid rgba(124, 247, 255, 0.2);
+    border-radius: 4px;
+    padding: 10px 16px;
+    text-align: left;
+}
+.controls-help-title {
+    margin: 0 0 6px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: #7cf7ff;
+}
+.controls-help ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.controls-help li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: #d8f7ff;
+}
+.controls-help .key {
+    display: inline-block;
+    min-width: 90px;
+    text-align: center;
+    padding: 2px 6px;
+    border: 1px solid rgba(124, 247, 255, 0.4);
+    border-radius: 3px;
+    background: rgba(5, 6, 10, 0.6);
+    color: #7cf7ff;
+    font-size: 0.7rem;
+}
+.controls-help-note {
+    margin: 8px 0 0;
+    font-size: 0.7rem;
+    color: #8fa3ad;
+}
+
+/* STARTボタン押下後、ゲーム開始までの一瞬に挟む起動演出。裏側は既に
+   startGame()が動き出していてよく、あくまで見た目の飾り。 */
+.start-progress {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(5, 6, 10, 0.95);
+    color: #7cf7ff;
+    text-shadow: 0 0 8px rgba(124, 247, 255, 0.6);
+    pointer-events: none;
+}
+.start-progress[hidden] {
+    display: none;
+}
+.start-progress-label {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+}
+.start-progress-bar {
+    width: 260px;
+    height: 8px;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    background: rgba(124, 247, 255, 0.08);
+    overflow: hidden;
+}
+.start-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: #7cf7ff;
+    box-shadow: 0 0 10px rgba(124, 247, 255, 0.8);
+}
+.start-progress-percent {
+    font-size: 0.75rem;
+    color: #8fa3ad;
+}
+
 #gameScreen {
     /* position/inset/displayは.screen側で既に指定済み。ここで(IDセレクタで)
        display:flex等を重複指定すると、.screen[hidden]{display:none}より詳細度が
@@ -150,6 +236,12 @@ body::before {
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
+}
+/* 連合TLの実測流速(notes/min)。短い窓の実測値を60秒換算しているだけなので、
+   1分ごとではなく投稿が来るたびに滑らかに変化する。 */
+.hud-rate {
+    font-size: 0.75rem;
+    color: #7cf7ff;
 }
 /* 見た目だけのハッタリ数値。常に細かく揺れ続けているだけで、
    難易度計算には一切使われていない。 */
@@ -316,6 +408,83 @@ body::before {
     display: none;
 }
 
+/* 一時停止ボタン。HUD左右の文字(.hud-left/.hud-right)と重ならないよう、
+   その間の空いている上部中央に置く。 */
+#pauseButton {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    background: rgba(124, 247, 255, 0.12);
+    color: #7cf7ff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+}
+#pauseButton:active {
+    background: rgba(124, 247, 255, 0.3);
+}
+
+/* 一時停止中のオーバーレイ。裏側のcanvasはそのまま(直前のフレームの状態で)
+   描画され続け、更新だけが止まる(main.ts: tick参照)。 */
+.pause-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background: rgba(5, 6, 10, 0.85);
+}
+.pause-overlay[hidden] {
+    display: none;
+}
+.pause-overlay h2 {
+    margin: 0;
+    color: #7cf7ff;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 12px rgba(124, 247, 255, 0.6);
+}
+.pause-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 240px;
+}
+#resumeButton,
+#pauseRetryButton,
+#pauseBackToTitleButton {
+    width: 100%;
+    background: #7cf7ff;
+    color: #05060a;
+    border: none;
+    padding: 10px 24px;
+    font: inherit;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#pauseBackToTitleButton {
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid #2a3a42;
+}
+#resumeButton:active,
+#pauseRetryButton:active,
+#pauseBackToTitleButton:active {
+    transform: translateY(1px);
+}
+
 /* スマホ用の発射ボタン。自機移動(canvasドラッグ)と competing しないよう、
    画面右下の隅に固定する。PCではZ/スペースキーで代用できるので、
    タッチ環境向けの補助という位置づけ。 */
@@ -419,10 +588,15 @@ body::before {
 }
 .result-buttons {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 240px;
 }
+#backToTitleButton,
 #retryButton,
 #shareButton {
+    width: 100%;
     background: #7cf7ff;
     color: #05060a;
     border: none;
@@ -433,9 +607,15 @@ body::before {
     border-radius: 4px;
     cursor: pointer;
 }
+#backToTitleButton {
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid #2a3a42;
+}
 #shareButton {
     background: #f0c100;
 }
+#backToTitleButton:active,
 #retryButton:active,
 #shareButton:active {
     transform: translateY(1px);

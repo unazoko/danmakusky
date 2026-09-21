@@ -17,6 +17,22 @@
       </label>
       <button id="startButton" type="button">START</button>
       <p id="titleError" class="error-text" hidden></p>
+      <div class="controls-help">
+        <p class="controls-help-title">PC操作</p>
+        <ul>
+          <li><span class="key">↑↓←→ / WASD</span>移動</li>
+          <li><span class="key">Shift</span>低速移動(精密操作)</li>
+          <li><span class="key">Z / Space</span>弾を発射</li>
+          <li><span class="key">Esc</span>一時停止</li>
+        </ul>
+        <p class="controls-help-note">スマホ: ドラッグで移動 / 画面のFIREボタンで発射</p>
+      </div>
+    </div>
+
+    <div id="startProgress" class="start-progress" hidden>
+      <div id="startProgressLabel" class="start-progress-label">INITIALIZING...</div>
+      <div class="start-progress-bar"><div id="startProgressFill" class="start-progress-fill"></div></div>
+      <span id="startProgressPercent" class="start-progress-percent">0%</span>
     </div>
 
     <div id="gameScreen" class="screen" hidden>
@@ -29,6 +45,7 @@
         </span>
         <span class="hud-right">
           <span id="hudStatus" class="hud-status"></span>
+          <span id="hudRate" class="hud-rate"></span>
           <span id="hudFake" class="hud-fake"></span>
         </span>
       </div>
@@ -46,6 +63,15 @@
         </div>
       </div>
       <div id="bootSequence" class="boot-sequence" hidden></div>
+      <button id="pauseButton" type="button" aria-label="一時停止">II</button>
+      <div id="pauseOverlay" class="pause-overlay" hidden>
+        <h2>PAUSED</h2>
+        <div class="pause-buttons">
+          <button id="resumeButton" type="button">再開</button>
+          <button id="pauseRetryButton" type="button">やり直し</button>
+          <button id="pauseBackToTitleButton" type="button">スタート画面に戻る</button>
+        </div>
+      </div>
       <button id="fireButton" type="button" aria-label="発射"></button>
     </div>
 
@@ -61,8 +87,9 @@
       </dl>
       <p id="highScoreLine" class="high-score-line"></p>
       <div class="result-buttons">
+        <button id="backToTitleButton" type="button">スタート画面に戻る</button>
         <button id="retryButton" type="button">もう一度遊ぶ</button>
-        <button id="shareButton" type="button">Misskeyに結果を投稿</button>
+        <button id="shareButton" type="button">結果を投稿する</button>
       </div>
     </div>
 

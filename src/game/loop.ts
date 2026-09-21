@@ -28,6 +28,9 @@ const PLAYER_BULLET_RADIUS = 4;
 const PLAYER_BULLET_DAMAGE = 1;
 // 自機弾の連射間隔(東方のZキー連射相当)。
 const PLAYER_FIRE_INTERVAL_MS = 120;
+// 横三連ガトリング。単発の狙い撃ちより面で当てやすくし、コアを早く倒せるように
+// する(コアを早く倒せれば、その分弾幕が激しい時間も短くなる)。
+const PLAYER_SHOT_OFFSETS_PX = [-14, 0, 14];
 
 export interface GameOverInfo {
   score: number;
@@ -120,8 +123,13 @@ export class GameState {
     );
     this.handlePlayerBulletsVsCores();
 
+    // 残機回復弾は無敵時間中でも拾える(無敵は被弾を防ぐためのものであって、
+    // 回復のチャンスまで奪う必要はない)。ダメージ弾のみ無敵中は判定しない。
+    const lifeUpIndex = this.bullets.findIndex((b) => b.isLifeUp && this.collidesWithPlayer(b));
+    if (lifeUpIndex !== -1) this.handlePlayerHit(this.bullets[lifeUpIndex], now);
+
     if (now >= this.player.invincibleUntil) {
-      const hitIndex = this.bullets.findIndex((b) => this.collidesWithPlayer(b));
+      const hitIndex = this.bullets.findIndex((b) => !b.isLifeUp && this.collidesWithPlayer(b));
       if (hitIndex !== -1) this.handlePlayerHit(this.bullets[hitIndex], now);
     }
 
@@ -141,12 +149,14 @@ export class GameState {
   private updatePlayerShooting(now: number, dtSec: number, input: InputController): void {
     if (input.isFiring() && now >= this.nextPlayerShotAt) {
       this.nextPlayerShotAt = now + PLAYER_FIRE_INTERVAL_MS;
-      this.playerBullets.push({
-        id: createBulletId(),
-        x: this.player.x,
-        y: this.player.y - this.player.spriteSize / 2,
-        vy: -PLAYER_BULLET_SPEED,
-      });
+      for (const offsetX of PLAYER_SHOT_OFFSETS_PX) {
+        this.playerBullets.push({
+          id: createBulletId(),
+          x: this.player.x + offsetX,
+          y: this.player.y - this.player.spriteSize / 2,
+          vy: -PLAYER_BULLET_SPEED,
+        });
+      }
     }
 
     for (const b of this.playerBullets) b.y += b.vy * dtSec;

@@ -16,15 +16,16 @@ interface TierConfig {
   moves: boolean;
   spawnWeight: number;
   attackIntervalMs: number;
+  lifeUpDropChance: number;
 }
 
 // 弱: 複数体同時出現・移動する・HP低め・攻撃単調・弾少な目
-// 中: 位置固定・最大2体・弱よりHP高め・螺旋/同心円弾幕
-// 強: 移動する(単純な往復)・最大1体・HPが一番高い・攻撃も一番激しい
+// 中: 水平往復移動・最大2体・弱よりHP高め・螺旋/同心円弾幕
+// 強: 横方向の中心に固定・最大1体・HPが一番高い・攻撃も一番激しい
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
-  weak: { maxHp: 15, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1100 },
-  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: false, spawnWeight: 30, attackIntervalMs: 750 },
-  strong: { maxHp: 70, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 10, attackIntervalMs: 500 },
+  weak: { maxHp: 15, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1100, lifeUpDropChance: 0 },
+  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 750, lifeUpDropChance: 0.5 },
+  strong: { maxHp: 70, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 4, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
@@ -73,8 +74,31 @@ export class CoreManager {
     const defeated = this.cores.filter((c) => c.hp <= 0);
     if (defeated.length > 0) {
       this.cores = this.cores.filter((c) => c.hp > 0);
-      for (const core of defeated) listeners.onCoreDefeated?.(core);
+      for (const core of defeated) {
+        this.dropLifeUpItem(core, now, bullets);
+        listeners.onCoreDefeated?.(core);
+      }
     }
+  }
+
+  // ボスを倒すと、階級に応じた確率でその場に残機回復弾を1つ落とす
+  // (弱=0%、中=50%、強=100%)。
+  private dropLifeUpItem(core: Core, now: number, bullets: Bullet[]): void {
+    if (Math.random() >= TIER_CONFIG[core.tier].lifeUpDropChance) return;
+    bullets.push({
+      id: createBulletId(),
+      img: core.img,
+      shortcode: core.shortcode,
+      x: core.x,
+      y: core.y,
+      vx: (Math.random() - 0.5) * 30,
+      vy: 70 + Math.random() * 30,
+      size: 26,
+      hitRadius: 10,
+      spawnedAt: now,
+      behavior: { kind: "linear" },
+      isLifeUp: true,
+    });
   }
 
   private trySpawn(now: number, canvasWidth: number, listeners: CoreManagerListeners): void {
@@ -93,7 +117,8 @@ export class CoreManager {
     const cfg = TIER_CONFIG[tier];
     const { shortcode, url } = this.recentEmojis[this.recentEmojis.length - 1];
 
-    const x = canvasWidth * (0.25 + Math.random() * 0.5);
+    // 強ボスは横方向の中心に固定して出現させる(それ以外は左右にばらけさせる)。
+    const x = tier === "strong" ? canvasWidth / 2 : canvasWidth * (0.25 + Math.random() * 0.5);
     const core: Core = {
       id: createCoreId(),
       tier,
@@ -135,12 +160,13 @@ export class CoreManager {
       core.y += Math.sin(core.moveAngle) * speed * dtSec * 0.4; // 縦方向の動きは控えめに
       core.x = Math.min(Math.max(core.x, 40), canvasWidth - 40);
       core.y = Math.min(Math.max(core.y, 50), 160);
-    } else if (core.tier === "strong") {
-      // 強ボスは単純な水平往復運動。
+    } else if (core.tier === "mid") {
+      // 中ボスは単純な水平往復運動。
       const elapsedSec = (now - core.spawnedAt) / 1000;
-      const amplitude = Math.min(canvasWidth * 0.3, 120);
-      core.x = core.moveOriginX + Math.sin(elapsedSec * 0.8) * amplitude;
+      const amplitude = Math.min(canvasWidth * 0.25, 100);
+      core.x = core.moveOriginX + Math.sin(elapsedSec * 0.7) * amplitude;
     }
+    // 強ボスは横方向の中心に固定(moves: falseなのでここに来ない)。
   }
 
   private updateAttack(

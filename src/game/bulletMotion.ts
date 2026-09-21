@@ -11,6 +11,11 @@ function normalizeAngle(angle: number): number {
   return a;
 }
 
+// 円運動は軌道が画面内に収まっていると画面外カリングの対象にならず、
+// 被弾しない限り永遠に残ってしまう。一定時間で軌道を離し、その瞬間の
+// 接線方向へ直進させることで、以降は通常のカリングで消えるようにする。
+const ORBIT_RELEASE_MS = 4000;
+
 // spawnedはsplitter発動時に増える弾を積む先(呼び出し側でbullets配列へ追加する)。
 export function updateBullet(
   b: Bullet,
@@ -45,6 +50,13 @@ export function updateBullet(
     }
 
     case "orbit": {
+      if (now - b.spawnedAt > ORBIT_RELEASE_MS) {
+        // 直前のフレームまでの接線方向の速度(b.vx/b.vy)をそのまま引き継いで直進に切り替える。
+        b.behavior = { kind: "linear" };
+        b.x += b.vx * dtSec;
+        b.y += b.vy * dtSec;
+        break;
+      }
       behavior.angle += behavior.angularSpeedRadPerSec * dtSec;
       const speed = Math.abs(behavior.angularSpeedRadPerSec) * behavior.radius;
       const dir = behavior.angularSpeedRadPerSec >= 0 ? 1 : -1;

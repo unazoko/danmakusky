@@ -25,6 +25,15 @@ export function isImageReady(img: HTMLImageElement): boolean {
   return img.complete && img.naturalWidth > 0;
 }
 
+// 自機絵文字がまだ決まっていない(投稿が来ずタイムアウトした等)ときの
+// フォールバック用に、既に読み込み済みの絵文字からランダムに1つ返す。
+// 1件もなければnull(その場合は追加の投稿を待つしかない)。
+export function randomCachedEmojiImage(): HTMLImageElement | null {
+  const ready = [...imageCache.values()].filter(isImageReady);
+  if (ready.length === 0) return null;
+  return ready[Math.floor(Math.random() * ready.length)];
+}
+
 // 残機回復弾だけ緑色のグローを添えて、「これは避けるのではなく取りに行く弾」だと
 // 一目で分かるようにする。
 export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[], now: number): void {
