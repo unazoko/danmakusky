@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-    <title>danmakusky</title>
+    <title>DANMAKUSKY</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/DANMAKUSKY_192px.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/DANMAKUSKY_512px.png" />
+    <link rel="apple-touch-icon" href="/icons/DANMAKUSKY_192px.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#05060a" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -54,9 +62,9 @@
       </div>
 
       <div class="title-legal">
-        <button id="licenseButton" type="button" class="legal-link">
-          <span id="licenseButtonIcon" class="legal-link-icon"></span>
-          ライセンス情報
+        <button id="aboutButton" type="button" class="legal-link">
+          <span id="aboutButtonIcon" class="legal-link-icon"></span>
+          About
         </button>
         <span class="title-legal-sep">・</span>
         <button id="clearDataButton" type="button" class="legal-link legal-link-danger">
@@ -66,12 +74,26 @@
       </div>
     </div>
 
-    <div id="licenseOverlay" class="collection-overlay" hidden>
+    <div id="aboutOverlay" class="collection-overlay" hidden>
       <div class="collection-panel">
-        <h2>LICENSE</h2>
-        <div id="licenseContent" class="markdown-doc"></div>
-        <button id="licenseCloseButton" type="button">
-          <span id="licenseCloseButtonIcon" class="btn-icon"></span>
+        <h2>DANMAKUSKYについて</h2>
+        <div id="aboutIntro" class="markdown-doc"></div>
+        <div class="about-collapsible">
+          <button id="licenseToggle" type="button" class="about-collapsible-toggle" aria-expanded="false">
+            <span class="about-collapsible-toggle-label">
+              <span id="licenseToggleIcon" class="btn-icon"></span>
+              <span>ライセンス情報</span>
+            </span>
+            <span id="licenseChevronIcon" class="about-collapsible-chevron"></span>
+          </button>
+          <div id="licenseRows" class="about-collapsible-rows">
+            <div class="about-collapsible-rows-inner">
+              <div id="licenseContent" class="markdown-doc"></div>
+            </div>
+          </div>
+        </div>
+        <button id="aboutCloseButton" type="button">
+          <span id="aboutCloseButtonIcon" class="btn-icon"></span>
           閉じる
         </button>
       </div>

@@ -1,0 +1,22 @@
+{
+  "name": "DANMAKUSKY",
+  "short_name": "DANMAKUSKY",
+  "description": "連合TL カスタム絵文字弾幕ゲーム",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "icons": [
+    {
+      "src": "icons/DANMAKUSKY_192px.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/DANMAKUSKY_512px.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

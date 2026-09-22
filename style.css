@@ -8,6 +8,7 @@ body {
     background: #05060a;
     color: #d8f7ff;
     font-family:
+        "Share Tech Mono",
         "Consolas",
         "Courier New",
         ui-monospace,
@@ -124,7 +125,7 @@ body::before {
     align-items: center;
     gap: 12px;
     width: min(320px, 100%);
-    padding: 20px;
+    padding: 14px 20px;
     background: rgba(124, 247, 255, 0.05);
     border: 1px solid rgba(124, 247, 255, 0.2);
     border-radius: 4px;
@@ -264,8 +265,8 @@ body::before {
     gap: 6px;
 }
 .title-legal-sep {
-    color: #4f6b78;
-    font-size: 0.7rem;
+    color: #7c9aa8;
+    font-size: 0.75rem;
 }
 .legal-link {
     display: inline-flex;
@@ -273,21 +274,21 @@ body::before {
     gap: 4px;
     background: none;
     border: none;
-    color: #4f6b78;
+    color: #7c9aa8;
     text-decoration: underline;
     font: inherit;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     cursor: pointer;
     padding: 0;
 }
 .legal-link-icon .icon {
-    width: 13px;
-    height: 13px;
+    width: 14px;
+    height: 14px;
 }
 /* データ削除は取り返しがつかない操作なので、他のリンクボタンと並んでいても
-   色だけで危険度が分かるようにする(ただし目立たせすぎない暗めの赤)。 */
+   色だけで危険度が分かるようにする(ただし目立たせすぎない赤)。 */
 .legal-link-danger {
-    color: #8a4f4f;
+    color: #c07777;
 }
 
 /* 絵文字コレクション(遭遇したカスタム絵文字の図鑑)。localStorageに保存された
@@ -351,6 +352,54 @@ body::before {
 .markdown-doc a {
     color: #7cf7ff;
 }
+
+/* 「DANMAKUSKYについて」内の折りたたみ項目(今のところライセンス情報のみ)。
+   高さがautoの要素はtransitionできないため、grid行の比率(0fr⇔1fr)を
+   アニメーションし、はみ出た分は-rows-inner側のoverflow:hiddenでクリップする。 */
+.about-collapsible {
+    border-top: 1px solid rgba(124, 247, 255, 0.15);
+    padding-top: 6px;
+}
+.about-collapsible-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    padding: 6px 0;
+    font: inherit;
+    color: #7cf7ff;
+    cursor: pointer;
+}
+.about-collapsible-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.about-collapsible-chevron .icon {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.15s ease;
+}
+.about-collapsible-toggle[aria-expanded="true"] .about-collapsible-chevron .icon {
+    transform: rotate(180deg);
+}
+.about-collapsible-rows {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s ease;
+}
+.about-collapsible-rows.expanded {
+    grid-template-rows: 1fr;
+}
+.about-collapsible-rows-inner {
+    overflow: hidden;
+}
+.about-collapsible-rows-inner .markdown-doc {
+    padding-top: 8px;
+}
+
 .collection-list {
     overflow-y: auto;
     display: grid;
@@ -424,7 +473,7 @@ body::before {
     padding: 20px 0;
 }
 #collectionCloseButton,
-#licenseCloseButton {
+#aboutCloseButton {
     align-self: center;
     display: flex;
     align-items: center;
@@ -439,7 +488,7 @@ body::before {
     font: inherit;
 }
 #collectionCloseButton:active,
-#licenseCloseButton:active {
+#aboutCloseButton:active {
     transform: translateY(1px);
 }
 
@@ -959,20 +1008,41 @@ body::before {
     background: rgba(124, 247, 255, 0.35);
 }
 
+/* 結果画面は一番スクリーンショットに撮られる画面なので、スクロールしなくても
+   全体が見えるようにしたい。.result-panel自体の高さには触れず、main.ts側
+   (fitResultPanelToViewport)で画面に収まる倍率を計算してtransform: scale()
+   で縮小する(transform-originは既定のcenterのままにして、#gameOverScreenの
+   flexによる中央揃えの中心を軸に縮むようにする)。
+   万一(極端に低いウィンドウ高さ等で)縮小の下限に達してもなお収まらない
+   場合の保険として、#gameOverScreen自体にだけスクロールを許可しておく。 */
 #gameOverScreen {
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 24px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 110, 110, 0.5) rgba(5, 6, 10, 0.4);
+}
+#gameOverScreen::-webkit-scrollbar {
+    width: 8px;
+}
+#gameOverScreen::-webkit-scrollbar-track {
+    background: rgba(5, 6, 10, 0.4);
+    border-radius: 4px;
+}
+#gameOverScreen::-webkit-scrollbar-thumb {
+    background: rgba(255, 110, 110, 0.4);
+    border-radius: 4px;
+}
+#gameOverScreen::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 110, 110, 0.65);
 }
 /* 全体をひとつの端末パネルとして額装する。ただの縦積みに見えないよう、
    枠・発光・角のブラケット装飾を付ける。 */
 .result-panel {
     position: relative;
     width: min(360px, 92vw);
-    max-height: 92vh;
-    overflow-y: auto;
-    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -983,24 +1053,18 @@ body::before {
     border: 1px solid rgba(255, 110, 110, 0.3);
     border-radius: 10px;
     box-shadow: 0 0 40px rgba(255, 110, 110, 0.12);
-    /* 縦に長くなってスクロールが必要なときも、素のOS標準スクロールバーが
-       浮いて見えないよう見た目を合わせる(collection-listと同じ方針)。 */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 110, 110, 0.5) rgba(5, 6, 10, 0.4);
-}
-.result-panel::-webkit-scrollbar {
-    width: 8px;
-}
-.result-panel::-webkit-scrollbar-track {
-    background: rgba(5, 6, 10, 0.4);
-    border-radius: 4px;
-}
-.result-panel::-webkit-scrollbar-thumb {
-    background: rgba(255, 110, 110, 0.4);
-    border-radius: 4px;
-}
-.result-panel::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 110, 110, 0.65);
+    /* fitResultPanelToViewport(main.ts)がtransform: scale()で縮小する。
+       #gameOverScreenのjustify-content:centerは、中身がはみ出していても
+       (safe寄せにはならず)中心を basisにそのまま中央揃えするため、
+       transform-origin(既定のcenter)を変えずに縮めれば、縮小後も
+       画面の縦中央にきちんと収まる。
+       なお、ここにoverflow-x:hiddenを付けると(CSSの仕様上、overflow-xと
+       overflow-yの片方だけをvisible以外にすると、もう片方も自動的にauto
+       扱いになる)overflow-y:autoが暗黙に付いてしまい、flexboxの
+       「overflowがvisibleでない要素は自動最小サイズが0になる」規則と
+       相まって、この要素自身がgameOverScreenの高さに強制的に押し縮められ
+       (中身が意図せず内部スクロール・クリップされる)不具合の原因になった
+       ため、付けない。 */
 }
 /* SF端末風の角ブラケット(左上・右下のみに入れて「読み取り機」感を出す)。 */
 .result-panel::before,
@@ -1068,9 +1132,15 @@ body::before {
        内容に合わせて広がってしまい、はみ出しを検知・抑制できなくなる。 */
     width: 100%;
 }
+/* 正方形の絵文字と同じ高さ(64px)で表示する。横長の絵文字は横幅が
+   伸びる形にする(width:64pxで固定すると、横長のものだけobject-fitで
+   縦につぶれて小さく見えてしまうため)。ただし枠(.cause-panel)より
+   横に広がりすぎる場合は、比率を保ったまま自動で縮小する。 */
 .cause-emoji-img {
-    width: 64px;
-    height: 64px;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 64px;
     object-fit: contain;
 }
 /* 死因のショートコードをそのまま煽り文句として大きく出す

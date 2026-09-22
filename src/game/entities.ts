@@ -94,6 +94,29 @@ export interface PlayerBullet {
   vy: number;
 }
 
+// 強ボス専用の特殊攻撃。まず予告(telegraph、当たり判定なし)で狙いを示し、
+// 少し遅れて実際に当たる太いビーム(firing)に切り替わる。origin/angleは
+// 予告を出した瞬間の自機位置で固定し(コア本体の位置に関わらず)独立して
+// 存在し続ける(発生済みの通常弾がコア本体から独立するのと同じ考え方)。
+export type LaserState = "telegraph" | "firing";
+
+export interface Laser {
+  id: number;
+  originX: number;
+  originY: number;
+  angle: number;
+  length: number;
+  width: number;
+  state: LaserState;
+  // 現在の状態(telegraph/firing)が終わる時刻。
+  stateEndsAt: number;
+  shortcode: string;
+  img: HTMLImageElement;
+  // GRAZE(ニアミス)判定済みかどうか。発射中に何度もかすっても1回だけ
+  // 加点するためのフラグ(Bullet.grazedと同じ考え方)。
+  grazed?: boolean;
+}
+
 let nextBulletId = 1;
 export function createBulletId(): number {
   return nextBulletId++;
@@ -102,4 +125,9 @@ export function createBulletId(): number {
 let nextCoreId = 1;
 export function createCoreId(): number {
   return nextCoreId++;
+}
+
+let nextLaserId = 1;
+export function createLaserId(): number {
+  return nextLaserId++;
 }

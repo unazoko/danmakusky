@@ -9,7 +9,7 @@
 // - 一部の通常弾は「残機回復弾」(捕まえると残機+1、上限あり)。
 import type { EmojiOccurrence } from "../noteEmoji.js";
 import type { InputController } from "../input.js";
-import type { Bullet, Core, Player, PlayerBullet } from "./entities.js";
+import type { Bullet, Core, Laser, Player, PlayerBullet } from "./entities.js";
 import { createBulletId } from "./entities.js";
 import { BulletSpawner } from "./spawner.js";
 import { CoreManager } from "./coreManager.js";
@@ -110,6 +110,10 @@ export class GameState {
     return this.coreManager.cores;
   }
 
+  get lasers(): readonly Laser[] {
+    return this.coreManager.lasers;
+  }
+
   handleEmojiOccurrences(occurrences: EmojiOccurrence[], now: number): void {
     if (this.gameOver || occurrences.length === 0) return;
 
@@ -163,6 +167,16 @@ export class GameState {
     if (now >= this.player.invincibleUntil) {
       const hitIndex = this.bullets.findIndex((b) => !b.isLifeUp && this.collidesWithPlayer(b));
       if (hitIndex !== -1) this.handlePlayerHit(this.bullets[hitIndex], now);
+    }
+
+    // レーザーは発射中(firing)のみ当たり判定がある。上のhandlePlayerHitが
+    // 無敵時間をセットしていれば、この時点でinvincibleUntilは既に未来の
+    // 時刻になっているため、同じフレームで弾とレーザーの二重被弾にはならない。
+    if (now >= this.player.invincibleUntil) {
+      const hitLaser = this.coreManager.lasers.find(
+        (l) => l.state === "firing" && this.collidesWithLaser(l),
+      );
+      if (hitLaser) this.handleLaserHit(hitLaser, now);
     }
 
     // 実際に当たった弾は上のhandlePlayerHitで既にbulletsから除去済みなので、
@@ -241,6 +255,27 @@ export class GameState {
     return dx * dx + dy * dy <= rSum * rSum;
   }
 
+  // 自機からビームの直線(originから角度方向、長さlength)への最短距離の
+  // 2乗を返す(原点より手前・終点より先には広がらないよう、射影をその
+  // 範囲にclampする)。当たり判定・GRAZE判定の両方から使う共通計算。
+  private laserDistanceSquared(laser: Laser): number {
+    const dirX = Math.cos(laser.angle);
+    const dirY = Math.sin(laser.angle);
+    const relX = this.player.x - laser.originX;
+    const relY = this.player.y - laser.originY;
+    const t = Math.max(0, Math.min(laser.length, relX * dirX + relY * dirY));
+    const closestX = laser.originX + dirX * t;
+    const closestY = laser.originY + dirY * t;
+    const dx = this.player.x - closestX;
+    const dy = this.player.y - closestY;
+    return dx * dx + dy * dy;
+  }
+
+  private collidesWithLaser(laser: Laser): boolean {
+    const rSum = laser.width / 2 + this.player.hitRadius;
+    return this.laserDistanceSquared(laser) <= rSum * rSum;
+  }
+
   private updateGraze(): void {
     for (const b of this.bullets) {
       if (b.isLifeUp || b.grazed) continue;
@@ -249,10 +284,25 @@ export class GameState {
       const rSum = b.hitRadius + this.player.hitRadius + GRAZE_MARGIN_PX;
       if (dx * dx + dy * dy > rSum * rSum) continue;
       b.grazed = true;
-      this.grazeCount += 1;
-      this.bonusScore += GRAZE_SCORE_BONUS;
-      this.listeners.onGrazeChange?.(this.grazeCount);
+      this.countGraze();
     }
+
+    // レーザーも東方と同じくGRAZE対象。発射中(firing)の実体だけを対象にし
+    // (予告中は当たり判定自体が無いのでGRAZEもしない)、同じ発射中は
+    // 1回だけカウントする。
+    for (const l of this.coreManager.lasers) {
+      if (l.state !== "firing" || l.grazed) continue;
+      const rSum = l.width / 2 + this.player.hitRadius + GRAZE_MARGIN_PX;
+      if (this.laserDistanceSquared(l) > rSum * rSum) continue;
+      l.grazed = true;
+      this.countGraze();
+    }
+  }
+
+  private countGraze(): void {
+    this.grazeCount += 1;
+    this.bonusScore += GRAZE_SCORE_BONUS;
+    this.listeners.onGrazeChange?.(this.grazeCount);
   }
 
   private handlePlayerHit(bullet: Bullet, now: number): void {
@@ -271,9 +321,19 @@ export class GameState {
       return;
     }
 
+    this.applyDamage(bullet.shortcode, bullet.img, now);
+  }
+
+  // レーザーは弾のように配列から取り除く対象が無い(発射が終わるまで
+  // 存在し続ける)以外はダメージ弾と同じ扱いにする。
+  private handleLaserHit(laser: Laser, now: number): void {
+    this.applyDamage(laser.shortcode, laser.img, now);
+  }
+
+  private applyDamage(shortcode: string, img: HTMLImageElement, now: number): void {
     this.life -= 1;
-    this.causeShortcode = bullet.shortcode || "不明";
-    this.causeImg = bullet.img;
+    this.causeShortcode = shortcode || "不明";
+    this.causeImg = img;
     this.player.invincibleUntil = now + INVINCIBLE_MS;
     this.listeners.onLifeChange?.(this.life);
 

@@ -8,6 +8,7 @@ import {
   drawPlayer,
   drawPlayerBullets,
   drawCore,
+  drawLasers,
 } from "./render.js";
 import { InputController } from "./input.js";
 import { GameState, INITIAL_LIFE, type GameOverInfo } from "./game/loop.js";
@@ -52,8 +53,9 @@ import {
   START_PROGRESS_LABELS,
 } from "./flavor.js";
 import type { Core } from "./game/entities.js";
-// 確認ダイアログ・ライセンス情報の本文はビルド時に埋め込む(?rawで文字列として取り込む)。
+// 確認ダイアログ・About・ライセンス情報の本文はビルド時に埋め込む(?rawで文字列として取り込む)。
 import clearDataConfirmMd from "./docs/データ削除確認.md?raw";
+import aboutMd from "./docs/概要.md?raw";
 import licenseMd from "./docs/ライセンス情報.md?raw";
 
 function $<T extends HTMLElement>(selector: string): T {
@@ -65,6 +67,7 @@ function $<T extends HTMLElement>(selector: string): T {
 const titleScreen = $<HTMLDivElement>("#titleScreen");
 const gameScreen = $<HTMLDivElement>("#gameScreen");
 const gameOverScreen = $<HTMLDivElement>("#gameOverScreen");
+const resultPanel = $<HTMLDivElement>(".result-panel");
 const instanceInput = $<HTMLInputElement>("#instanceInput");
 const startButton = $<HTMLButtonElement>("#startButton");
 const titleError = $<HTMLParagraphElement>("#titleError");
@@ -94,15 +97,19 @@ const startButtonIcon = $<HTMLSpanElement>("#startButtonIcon");
 const pauseButtonIcon = $<HTMLSpanElement>("#pauseButtonIcon");
 const collectionCloseButtonIcon = $<HTMLSpanElement>("#collectionCloseButtonIcon");
 const collectionDetailCloseButtonIcon = $<HTMLSpanElement>("#collectionDetailCloseButtonIcon");
-const licenseCloseButtonIcon = $<HTMLSpanElement>("#licenseCloseButtonIcon");
-const licenseButtonIcon = $<HTMLSpanElement>("#licenseButtonIcon");
+const aboutCloseButtonIcon = $<HTMLSpanElement>("#aboutCloseButtonIcon");
+const aboutButtonIcon = $<HTMLSpanElement>("#aboutButtonIcon");
+const licenseToggleIcon = $<HTMLSpanElement>("#licenseToggleIcon");
+const licenseChevronIcon = $<HTMLSpanElement>("#licenseChevronIcon");
 const clearDataButtonIcon = $<HTMLSpanElement>("#clearDataButtonIcon");
 
 startButtonIcon.append(createIcon("play"));
 collectionCloseButtonIcon.append(createIcon("x"));
 collectionDetailCloseButtonIcon.append(createIcon("x"));
-licenseCloseButtonIcon.append(createIcon("x"));
-licenseButtonIcon.append(createIcon("copyright"));
+aboutCloseButtonIcon.append(createIcon("x"));
+aboutButtonIcon.append(createIcon("info"));
+licenseToggleIcon.append(createIcon("copyright"));
+licenseChevronIcon.append(createIcon("chevron-down"));
 clearDataButtonIcon.append(createIcon("trash-2"));
 // 一時停止ボタンだけは状態(再生中/一時停止中)に応じてアイコンを切り替える
 // (初期状態は必ず再生中なので、ここでは固定でpauseアイコンを入れておく。
@@ -148,12 +155,15 @@ const clearDataOverlay = $<HTMLDivElement>("#clearDataOverlay");
 const clearDataMessage = $<HTMLDivElement>("#clearDataMessage");
 const clearDataCancelButton = $<HTMLButtonElement>("#clearDataCancelButton");
 const clearDataConfirmButton = $<HTMLButtonElement>("#clearDataConfirmButton");
-const licenseButton = $<HTMLButtonElement>("#licenseButton");
-const licenseOverlay = $<HTMLDivElement>("#licenseOverlay");
+const aboutButton = $<HTMLButtonElement>("#aboutButton");
+const aboutOverlay = $<HTMLDivElement>("#aboutOverlay");
+const aboutIntro = $<HTMLDivElement>("#aboutIntro");
+const aboutCloseButton = $<HTMLButtonElement>("#aboutCloseButton");
+const licenseToggle = $<HTMLButtonElement>("#licenseToggle");
+const licenseRows = $<HTMLDivElement>("#licenseRows");
 const licenseContent = $<HTMLDivElement>("#licenseContent");
-const licenseCloseButton = $<HTMLButtonElement>("#licenseCloseButton");
 
-// 確認ダイアログ・ライセンス情報のMarkdownをHTMLへ変換しcontainerへ差し込む。
+// 確認ダイアログ・About・ライセンス情報のMarkdownをHTMLへ変換しcontainerへ差し込む。
 // 内容はdanmakusky自身がビルド時に同梱する文書(利用者の入力ではない)なので、
 // サニタイズせずそのままinnerHTMLへ描画してよい。
 function renderMarkdownDocInto(container: HTMLElement, markdown: string): void {
@@ -167,6 +177,7 @@ function renderMarkdownDocInto(container: HTMLElement, markdown: string): void {
 }
 
 renderMarkdownDocInto(clearDataMessage, clearDataConfirmMd);
+renderMarkdownDocInto(aboutIntro, aboutMd);
 renderMarkdownDocInto(licenseContent, licenseMd);
 
 function normalizeHost(raw: string): string | null {
@@ -416,14 +427,37 @@ function showGameOver(info: GameOverInfo): void {
     ? "★ NEW HIGH SCORE ★"
     : `HIGH SCORE ${getHighScore().toLocaleString()}`;
 
-  // 自機撃墜.mp3が鳴り終わってから結果画面を表示する(fitCauseShortcodeFontSizeは
-  // 実際にレイアウトされていないと幅を測れないため、表示後に呼ぶ)。
+  // 自機撃墜.mp3が鳴り終わってから結果画面を表示する(fitCauseShortcodeFontSize・
+  // fitResultPanelToViewportは実際にレイアウトされていないと高さ/幅を測れない
+  // ため、表示後に呼ぶ)。
   playPlayerDownSfx().then(() => {
     gameOverScreen.hidden = false;
     fitCauseShortcodeFontSize(shortcodeLabel);
+    fitResultPanelToViewport();
     playResultSfx();
   });
 }
+
+const RESULT_PANEL_MARGIN_PX = 16;
+const RESULT_PANEL_MIN_SCALE = 0.55;
+
+// 結果画面は一番スクリーンショットされる画面なので、スクロールしなくても
+// 全体が見えるようにしたい。#gameOverScreenのjustify-content:centerは、
+// 中身がはみ出していてもsafe寄せにはならず中心を基準に中央揃えするため、
+// 縮小後もその中心が画面の縦中央に来る(transform-originは既定のcenterの
+// まま)。よって上下対称の余白を引いた高さに収まる倍率を計算するだけでよい。
+function fitResultPanelToViewport(): void {
+  resultPanel.style.transform = "";
+  const naturalHeight = resultPanel.scrollHeight;
+  const available = window.innerHeight - RESULT_PANEL_MARGIN_PX * 2;
+  if (naturalHeight <= available) return;
+  const scale = Math.max(available / naturalHeight, RESULT_PANEL_MIN_SCALE);
+  resultPanel.style.transform = `scale(${scale})`;
+}
+// 結果画面表示中に画面サイズが変わった場合(端末回転等)も再計算する。
+window.addEventListener("resize", () => {
+  if (!gameOverScreen.hidden) fitResultPanelToViewport();
+});
 
 // presetShipImgを渡した場合(ゲーム初回開始時、進捗演出中に選定・読込済みの
 // 自機画像、またはそれが間に合わなかったときのキャッシュからの代役)は
@@ -512,6 +546,7 @@ function tick(now: number): void {
     }
     // 一時停止中も、直前のフレームの状態をそのまま描画し続ける(フリーズ画面)。
     for (const core of game.cores) drawCore(ctx, core);
+    drawLasers(ctx, game.lasers, now);
     drawBullets(ctx, game.bullets, now);
     drawPlayerBullets(ctx, game.playerBullets);
     drawPlayer(ctx, game.player, now);
@@ -862,11 +897,19 @@ collectionDetailCloseButton.onclick = () => {
   collectionDetailOverlay.hidden = true;
 };
 
-licenseButton.onclick = () => {
-  licenseOverlay.hidden = false;
+aboutButton.onclick = () => {
+  aboutOverlay.hidden = false;
 };
-licenseCloseButton.onclick = () => {
-  licenseOverlay.hidden = true;
+aboutCloseButton.onclick = () => {
+  aboutOverlay.hidden = true;
+  // 次に開いたときは必ず畳んだ状態から始まるようにする。
+  licenseRows.classList.remove("expanded");
+  licenseToggle.setAttribute("aria-expanded", "false");
+};
+licenseToggle.onclick = () => {
+  const willExpand = !licenseRows.classList.contains("expanded");
+  licenseRows.classList.toggle("expanded", willExpand);
+  licenseToggle.setAttribute("aria-expanded", String(willExpand));
 };
 
 clearDataButton.onclick = () => {

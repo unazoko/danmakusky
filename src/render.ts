@@ -1,4 +1,4 @@
-import type { Player, Bullet, Core, PlayerBullet } from "./game/entities.js";
+import type { Player, Bullet, Core, PlayerBullet, Laser } from "./game/entities.js";
 
 // カスタム絵文字画像のプリロード・キャッシュ。
 // 同じURLの画像を何度もロードし直さないようにする。ショートコード名ではなく
@@ -158,4 +158,38 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
   ctx.fillRect(barX, barY, barWidth, barHeight);
   ctx.fillStyle = ratio > 0.3 ? "#7cf7ff" : "#ff6e6e";
   ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+}
+
+// 強ボス専用のレーザー。予告(telegraph)中は狙いだけを示す点滅する破線、
+// 発射(firing)中は当たり判定のある太い発光ビームにする。
+export function drawLasers(ctx: CanvasRenderingContext2D, lasers: readonly Laser[], now: number): void {
+  for (const laser of lasers) {
+    ctx.save();
+    ctx.translate(laser.originX, laser.originY);
+    ctx.rotate(laser.angle);
+
+    if (laser.state === "telegraph") {
+      const pulse = 0.4 + 0.35 * Math.sin(now / 60);
+      ctx.strokeStyle = `rgba(255, 90, 90, ${pulse})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(laser.length, 0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      const gradient = ctx.createLinearGradient(0, -laser.width / 2, 0, laser.width / 2);
+      gradient.addColorStop(0, "rgba(255, 110, 110, 0)");
+      gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
+      gradient.addColorStop(1, "rgba(255, 110, 110, 0)");
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = "rgba(255, 80, 80, 0.9)";
+      ctx.shadowBlur = 18;
+      ctx.fillRect(0, -laser.width / 2, laser.length, laser.width);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+  }
 }

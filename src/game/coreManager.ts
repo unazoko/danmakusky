@@ -3,8 +3,8 @@
 // 上限もそれぞれ異なる。攻撃間隔・移動速度は、直近の連合TLの流速
 // (BulletSpawner.getStreamIntensity)でスケールし、「流速が高いほど難しい」
 // という基本コンセプトをコアの攻撃にも反映させる。
-import type { Bullet, Core, CoreTier } from "./entities.js";
-import { createBulletId, createCoreId } from "./entities.js";
+import type { Bullet, Core, CoreTier, Laser } from "./entities.js";
+import { createBulletId, createCoreId, createLaserId } from "./entities.js";
 import {
   aimedBullet,
   aimedFanVelocities,
@@ -38,6 +38,15 @@ const TIER_CONFIG: Record<CoreTier, TierConfig> = {
 // このショートコードはボスにせず通常弾のみとする(指定による除外)。
 const BOSS_EXCLUDED_SHORTCODES = new Set(["ba_ibuki_facea"]);
 
+// 強ボス専用「レーザー」の設定。予告→発射の2段階、発射中だけ当たり判定がある。
+// 強ボスの通常攻撃間隔(500ms/流速)よりずっと長い一連の演出になるため、
+// 乱発して見えないようクールダウンを別に設ける。
+const LASER_TELEGRAPH_MS = 650;
+const LASER_FIRE_MS = 550;
+const LASER_WIDTH_PX = 28;
+const LASER_LENGTH_PX = 2000;
+const LASER_COOLDOWN_MS = 3500;
+
 const BASE_SPAWN_INTERVAL_MS = 4000;
 const MAX_RECENT_EMOJI_URLS = 20;
 // 弱ボスが画面下へ流れていく速度(通常弾のstraightBullet等と同程度)。
@@ -59,8 +68,11 @@ interface RecentEmoji {
 
 export class CoreManager {
   cores: Core[] = [];
+  lasers: Laser[] = [];
   private recentEmojis: RecentEmoji[] = [];
   private nextSpawnAt = 0;
+  // 強ボスは常に最大1体なので、コアごとではなくCoreManager全体で1本管理する。
+  private nextLaserAt = 0;
 
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
@@ -82,6 +94,7 @@ export class CoreManager {
     listeners: CoreManagerListeners,
   ): void {
     this.trySpawn(now, canvasWidth, listeners);
+    this.updateLasers(now);
 
     for (const core of this.cores) {
       this.updateMovement(core, dtSec, now, canvasWidth);
@@ -229,12 +242,26 @@ export class CoreManager {
       }
     } else {
       // 強ボス: 中ボスと同じ引き出し(螺旋・同心円+放射・自機狙いの広い扇・
-      // 二重十字)をランダムに選ぶ、最も激しい攻撃。
+      // 二重十字)に加え、強ボス専用の「レーザー」をクールダウン付きで
+      // 織り交ぜる、最も激しい攻撃。
       core.attackAngle += (16 * Math.PI) / 180;
-      const pattern = pickWeighted(
-        ["spiral", "ringsBurst", "fan", "doubleCross"] as const,
-        (p) => ({ spiral: 35, ringsBurst: 20, fan: 25, doubleCross: 20 })[p],
-      );
+      type StrongPattern = "spiral" | "ringsBurst" | "fan" | "doubleCross" | "laser";
+      const weights: Record<StrongPattern, number> = {
+        spiral: 30,
+        ringsBurst: 18,
+        fan: 18,
+        doubleCross: 14,
+        laser: 20,
+      };
+      const candidates: StrongPattern[] = ["spiral", "ringsBurst", "fan", "doubleCross"];
+      if (now >= this.nextLaserAt) candidates.push("laser");
+      const pattern = pickWeighted(candidates, (p) => weights[p]);
+
+      if (pattern === "laser") {
+        this.spawnLaser(core, now, playerX, playerY);
+        return;
+      }
+
       if (pattern === "spiral") {
         velocities = spiralArmVelocities(5, core.attackAngle);
       } else if (pattern === "ringsBurst") {
@@ -264,6 +291,35 @@ export class CoreManager {
         behavior: { kind: "linear" },
       });
     }
+  }
+
+  // 予告開始の瞬間の自機位置へ狙いを固定する(以後は自機が動いても追尾しない、
+  // 「狙いを見て避ける」東方のレーザー攻撃と同じ緊張感を出すため)。
+  private spawnLaser(core: Core, now: number, playerX: number, playerY: number): void {
+    const angle = Math.atan2(playerY - core.y, playerX - core.x);
+    this.lasers.push({
+      id: createLaserId(),
+      originX: core.x,
+      originY: core.y,
+      angle,
+      length: LASER_LENGTH_PX,
+      width: LASER_WIDTH_PX,
+      state: "telegraph",
+      stateEndsAt: now + LASER_TELEGRAPH_MS,
+      shortcode: core.shortcode,
+      img: core.img,
+    });
+    this.nextLaserAt = now + LASER_COOLDOWN_MS;
+  }
+
+  private updateLasers(now: number): void {
+    for (const laser of this.lasers) {
+      if (laser.state === "telegraph" && now >= laser.stateEndsAt) {
+        laser.state = "firing";
+        laser.stateEndsAt = now + LASER_FIRE_MS;
+      }
+    }
+    this.lasers = this.lasers.filter((l) => l.state !== "firing" || now < l.stateEndsAt);
   }
 }
 
