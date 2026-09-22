@@ -23,7 +23,7 @@ export interface ShareResultInput {
 export function buildShareText(input: ShareResultInput): string {
   const cause = input.causeShortcode ?? "不明";
   return [
-    "DANMAKUSKYで遊びました。",
+    "DANMAKUSKY(弾幕スキー)で遊びました。",
     "",
     `SCORE: ${input.score.toLocaleString()}`,
     `TIME: ${formatTime(input.survivedMs)}`,

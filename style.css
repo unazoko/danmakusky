@@ -703,27 +703,35 @@ body::before {
     gap: 10px;
     width: 240px;
 }
+/* 塗りつぶしのボタンだと全体のホログラム調(縁取り+発光文字)から浮いて
+   見えるため、他のボタン(#pauseButton・.controls-help等)と同じく
+   半透明の背景+縁取り+発光する文字のスタイルに揃える。 */
 #backToTitleButton,
 #retryButton,
 #shareButton {
     width: 100%;
-    background: #7cf7ff;
-    color: #05060a;
-    border: none;
+    background: rgba(124, 247, 255, 0.08);
+    color: #7cf7ff;
+    border: 1px solid rgba(124, 247, 255, 0.5);
     padding: 10px 24px;
     font: inherit;
     font-weight: bold;
     letter-spacing: 0.05em;
     border-radius: 4px;
     cursor: pointer;
+    text-shadow: 0 0 8px rgba(124, 247, 255, 0.5);
 }
 #backToTitleButton {
     background: transparent;
     color: #8fa3ad;
     border: 1px solid #2a3a42;
+    text-shadow: none;
 }
 #shareButton {
-    background: #f0c100;
+    background: rgba(240, 193, 0, 0.08);
+    color: #f0c100;
+    border: 1px solid rgba(240, 193, 0, 0.5);
+    text-shadow: 0 0 8px rgba(240, 193, 0, 0.5);
 }
 #backToTitleButton:active,
 #retryButton:active,
