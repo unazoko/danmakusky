@@ -25,7 +25,7 @@ const CULL_MARGIN_PX = 60;
 
 const PLAYER_BULLET_SPEED = 420;
 const PLAYER_BULLET_RADIUS = 4;
-const PLAYER_BULLET_DAMAGE = 0.8;
+const PLAYER_BULLET_DAMAGE = 0.5;
 // 自機弾の連射間隔(東方のZキー連射相当)。
 const PLAYER_FIRE_INTERVAL_MS = 120;
 // 3連ガトリング

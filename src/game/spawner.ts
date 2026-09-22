@@ -32,7 +32,7 @@ const BULLET_HIT_RADIUS = 8;
 const SPAWN_MARGIN_PX = 24;
 const MAX_OVERFLOW_BONUS = 24;
 // 残機回復弾として出す確率。
-const LIFE_UP_CHANCE = 0.15;
+const LIFE_UP_CHANCE = 0.05;
 // 直近何秒分の出現間隔を見て「流速」を計算するか。
 const INTENSITY_WINDOW_MS = 8000;
 

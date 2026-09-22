@@ -32,7 +32,7 @@ interface TierConfig {
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   weak: { maxHp: 15, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1100, lifeUpDropChance: 0 },
   // attackIntervalMsは以前750だったが、弾幕密度が高すぎたため1000にナーフ。
-  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 900, lifeUpDropChance: 0.5 },
+  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 850, lifeUpDropChance: 0.5 },
   strong: { maxHp: 70, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 4, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };
 
