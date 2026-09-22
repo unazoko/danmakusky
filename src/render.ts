@@ -49,6 +49,13 @@ export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bul
       ctx.strokeStyle = `rgba(110, 255, 160, ${0.9 * pulse})`;
       ctx.lineWidth = 2;
       ctx.stroke();
+    } else {
+      // 黒っぽい絵文字が背景(黒)に溶け込んで見えなくなるのを防ぐため、
+      // 弾の背後に薄い白いハローを敷く(明るい絵文字にはほぼ影響しない)。
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.fill();
     }
 
     ctx.drawImage(b.img, b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
@@ -62,6 +69,11 @@ export function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, now: n
   const blinkVisible = !isInvincible || Math.floor(now / 100) % 2 === 0;
 
   if (blinkVisible && player.emojiImg && isImageReady(player.emojiImg)) {
+    // 弾と同様、黒っぽい絵文字が背景に溶け込まないよう薄い白いハローを敷く。
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.spriteSize * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.fill();
     ctx.drawImage(
       player.emojiImg,
       player.x - player.spriteSize / 2,
@@ -106,6 +118,12 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
   ctx.stroke();
 
   if (isImageReady(core.img)) {
+    // 弾・自機と同様、黒っぽい絵文字が縁取りの内側で見えなくならないよう
+    // 薄い白いハローを敷く。
+    ctx.beginPath();
+    ctx.arc(core.x, core.y, core.spriteSize * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.fill();
     ctx.drawImage(
       core.img,
       core.x - core.spriteSize / 2,

@@ -16,6 +16,7 @@ import { getHighScore, updateHighScore } from "./storage.js";
 import { ReactionTracker } from "./reactionTracker.js";
 import { NoteRateTracker } from "./noteRate.js";
 import { recordEmojiEncounter, getCollection } from "./emojiCollection.js";
+import { Starfield } from "./starfield.js";
 import {
   cutInTierLabel,
   fakeDensityPercent,
@@ -265,9 +266,15 @@ function scheduleGlitch(): void {
 // style.css: #gameScreen参照)。
 const MAX_PLAY_AREA_ASPECT = 0.8; // 幅 / 高さ の上限
 
+// 「宇宙を飛んでいる」感じを出す背景の星々。ゲーム画面が出る前(タイトルの
+// 裏)から動かしても問題ないので、初回のresizeCanvas呼び出し時に作る。
+let starfield: Starfield | null = null;
+
 function resizeCanvas(): void {
   canvas.width = Math.min(window.innerWidth, window.innerHeight * MAX_PLAY_AREA_ASPECT);
   canvas.height = window.innerHeight;
+  if (starfield) starfield.resize(canvas.width, canvas.height);
+  else starfield = new Starfield(canvas.width, canvas.height);
 }
 window.addEventListener("resize", resizeCanvas);
 
@@ -367,6 +374,8 @@ function tick(now: number): void {
   lastFrameAt = now;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!paused) starfield?.update(dtSec);
+  starfield?.draw(ctx);
 
   if (game && input && !game.gameOver) {
     if (!paused) {

@@ -499,7 +499,8 @@ body::before {
 .cut-in-quote {
     margin: 0;
     font-size: 0.8rem;
-    color: #8fa3ad;
+    color: #d8f7ff;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
 }
 
 /* コア撃破時の短い演出メッセージ。 */

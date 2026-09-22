@@ -124,7 +124,7 @@ const LIFE_UP_LINES = [
   "LIFE UP! ラッキー",
   "SYSTEM: 生き返った",
   "EMERGENCY REVIVAL SUCCESSFUL",
-  "死んでなかったことにします",
+  "大丈夫なことにします",
   "残機が増えました",
   "SYSTEM: もう一回だけ",
   "復活しました",
@@ -154,8 +154,8 @@ const CUT_IN_QUOTES: Record<CoreTier, readonly string[]> = {
     "そこそこやるようだ",
     "少しは本気を出すか",
     "Misskey(そら)って自由ですか？",
-    "ざぁこ♥",
-    "さらに前へ…もっと前へ",
+    "ざぁこ♥♥♥",
+    "さらに前へ…もっと前へ！",
     "文明の鉄槌を叩き込んでやれ！"
   ],
   strong: [
