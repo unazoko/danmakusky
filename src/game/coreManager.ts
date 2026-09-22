@@ -5,7 +5,14 @@
 // という基本コンセプトをコアの攻撃にも反映させる。
 import type { Bullet, Core, CoreTier } from "./entities.js";
 import { createBulletId, createCoreId } from "./entities.js";
-import { aimedBullet, circularBurst, concentricRingsVelocities, spiralArmVelocities } from "./patterns.js";
+import {
+  aimedBullet,
+  aimedFanVelocities,
+  circularBurst,
+  concentricRingsVelocities,
+  crossBurstVelocities,
+  spiralArmVelocities,
+} from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
 
 interface TierConfig {
@@ -24,12 +31,18 @@ interface TierConfig {
 // 強: 横方向の中心に固定・最大1体・HPが一番高い・攻撃も一番激しい
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   weak: { maxHp: 15, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1100, lifeUpDropChance: 0 },
-  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 750, lifeUpDropChance: 0.5 },
+  // attackIntervalMsは以前750だったが、弾幕密度が高すぎたため1000にナーフ。
+  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 900, lifeUpDropChance: 0.5 },
   strong: { maxHp: 70, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 4, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
 const MAX_RECENT_EMOJI_URLS = 20;
+// 弱ボスが画面下へ流れていく速度(通常弾のstraightBullet等と同程度)。
+const WEAK_DRIFT_SPEED_PX_PER_SEC = 28;
+// 画面外に十分出た弱ボスは通常弾と同じように消す(このマージンより
+// 内側に戻ってくることはない前提、loop.ts: CULL_MARGIN_PXと同じ考え方)。
+const WEAK_CULL_MARGIN_PX = 60;
 
 export interface CoreManagerListeners {
   onCoreDefeated?: (core: Core) => void;
@@ -58,6 +71,7 @@ export class CoreManager {
     dtSec: number,
     now: number,
     canvasWidth: number,
+    canvasHeight: number,
     intensity: number,
     playerX: number,
     playerY: number,
@@ -79,6 +93,12 @@ export class CoreManager {
         listeners.onCoreDefeated?.(core);
       }
     }
+
+    // 弱ボスは通常弾と同じく画面下へ流れ続けるので、十分下まで出たら
+    // (倒したことにはせず、報酬も出さずに)静かに消す。
+    this.cores = this.cores.filter(
+      (c) => c.tier !== "weak" || c.y < canvasHeight + WEAK_CULL_MARGIN_PX,
+    );
   }
 
   // ボスを倒すと、階級に応じた確率でその場に残機回復弾を1つ落とす
@@ -132,12 +152,10 @@ export class CoreManager {
       img: getOrLoadEmojiImage(url),
       moveAngle: Math.random() * Math.PI * 2,
       moveOriginX: x,
-      moveOriginY: 0,
       spawnedAt: now,
       nextAttackAt: now + cfg.attackIntervalMs,
       attackAngle: 0,
     };
-    core.moveOriginY = core.y;
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);
 
@@ -153,13 +171,14 @@ export class CoreManager {
     if (!cfg.moves) return;
 
     if (core.tier === "weak") {
-      // ふらふらとした弱ボスの移動: 角度をゆっくりランダムに変えながら漂う。
-      core.moveAngle += (Math.random() - 0.5) * dtSec * 1.5;
-      const speed = 30;
-      core.x += Math.cos(core.moveAngle) * speed * dtSec;
-      core.y += Math.sin(core.moveAngle) * speed * dtSec * 0.4; // 縦方向の動きは控えめに
+      // 左右には正弦波でふらふらと(ランダムウォークだと角度がたまたま
+      // 垂直寄りに偏ったまま止まって見えることがあるため、絶対に止まらない
+      // 正弦波にする)、縦方向は通常弾と同じく画面下へ流れ続ける。
+      const elapsedSec = (now - core.spawnedAt) / 1000;
+      const amplitude = Math.min(canvasWidth * 0.2, 80);
+      core.x = core.moveOriginX + Math.sin(elapsedSec * 0.9 + core.moveAngle) * amplitude;
       core.x = Math.min(Math.max(core.x, 40), canvasWidth - 40);
-      core.y = Math.min(Math.max(core.y, 50), 160);
+      core.y += WEAK_DRIFT_SPEED_PX_PER_SEC * dtSec;
     } else if (core.tier === "mid") {
       // 中ボスは単純な水平往復運動。
       const elapsedSec = (now - core.spawnedAt) / 1000;
@@ -189,19 +208,42 @@ export class CoreManager {
       // 単調な攻撃: 自機狙いを1発だけ。
       velocities = [aimedBullet(core.x, core.y, playerX, playerY)];
     } else if (core.tier === "mid") {
-      // 螺旋か同心円かを交互に。
-      core.attackAngle += (12 * Math.PI) / 180;
-      velocities =
-        Math.random() < 0.5
-          ? spiralArmVelocities(4, core.attackAngle)
-          : concentricRingsVelocities(2, 10);
+      // 東方を参考に、螺旋・同心円・自機狙いの扇・十字(風車)をランダムに
+      // 織り交ぜる。強ボスよりも1回あたりの弾数を絞って密度を抑える。
+      core.attackAngle += (10 * Math.PI) / 180;
+      const pattern = pickWeighted(
+        ["spiral", "rings", "fan", "cross"] as const,
+        (p) => ({ spiral: 25, rings: 20, fan: 30, cross: 25 })[p],
+      );
+      if (pattern === "spiral") {
+        velocities = spiralArmVelocities(3, core.attackAngle);
+      } else if (pattern === "rings") {
+        velocities = concentricRingsVelocities(2, 6);
+      } else if (pattern === "fan") {
+        velocities = aimedFanVelocities(3, Math.PI / 4, core.x, core.y, playerX, playerY);
+      } else {
+        velocities = crossBurstVelocities(core.attackAngle);
+      }
     } else {
-      // 強ボス: 螺旋+時々同心円を織り交ぜた激しい攻撃。
+      // 強ボス: 中ボスと同じ引き出し(螺旋・同心円+放射・自機狙いの広い扇・
+      // 二重十字)をランダムに選ぶ、最も激しい攻撃。
       core.attackAngle += (16 * Math.PI) / 180;
-      velocities =
-        Math.random() < 0.7
-          ? spiralArmVelocities(5, core.attackAngle)
-          : [...concentricRingsVelocities(2, 12), ...circularBurst(8, core.attackAngle)];
+      const pattern = pickWeighted(
+        ["spiral", "ringsBurst", "fan", "doubleCross"] as const,
+        (p) => ({ spiral: 35, ringsBurst: 20, fan: 25, doubleCross: 20 })[p],
+      );
+      if (pattern === "spiral") {
+        velocities = spiralArmVelocities(5, core.attackAngle);
+      } else if (pattern === "ringsBurst") {
+        velocities = [...concentricRingsVelocities(2, 12), ...circularBurst(8, core.attackAngle)];
+      } else if (pattern === "fan") {
+        velocities = aimedFanVelocities(5, Math.PI / 2.5, core.x, core.y, playerX, playerY);
+      } else {
+        velocities = [
+          ...crossBurstVelocities(core.attackAngle),
+          ...crossBurstVelocities(core.attackAngle + Math.PI / 4),
+        ];
+      }
     }
 
     for (const v of velocities) {

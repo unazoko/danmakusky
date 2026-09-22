@@ -25,18 +25,36 @@ const CULL_MARGIN_PX = 60;
 
 const PLAYER_BULLET_SPEED = 420;
 const PLAYER_BULLET_RADIUS = 4;
-const PLAYER_BULLET_DAMAGE = 1;
+const PLAYER_BULLET_DAMAGE = 0.8;
 // 自機弾の連射間隔(東方のZキー連射相当)。
 const PLAYER_FIRE_INTERVAL_MS = 120;
-// 横三連ガトリング。単発の狙い撃ちより面で当てやすくし、コアを早く倒せるように
-// する(コアを早く倒せれば、その分弾幕が激しい時間も短くなる)。
+// 3連ガトリング
 const PLAYER_SHOT_OFFSETS_PX = [-14, 0, 14];
+// 2連ガトリング
+// const PLAYER_SHOT_OFFSETS_PX = [-8, 8];
+
+// GRAZE(ニアミス)判定。実際の当たり判定(hitRadius同士の合計)より一回り
+// 広い距離まで弾が近づいた瞬間を「かすった」とみなす。実際に当たった弾は
+// updateEnemyBullets→当たり判定の順で既にbulletsから除去済みのため、
+// 二重に加点されることはない。
+const GRAZE_MARGIN_PX = 13;
+const GRAZE_SCORE_BONUS = 10;
+// 残機が満タンの状態で残機回復弾を拾った場合、回復の代わりに加点する
+// (満タン時はただ無駄になるだけなので)。
+const LIFE_UP_OVERFLOW_SCORE_BONUS = 50;
+// コア(ボス)撃破時の加点。階級が高いほど大きく加点する。
+const CORE_DEFEAT_SCORE_BONUS: Record<Core["tier"], number> = {
+  weak: 200,
+  mid: 500,
+  strong: 1500,
+};
 
 export interface GameOverInfo {
   score: number;
   survivedMs: number;
   causeShortcode: string | null;
   causeImg: HTMLImageElement | null;
+  grazeCount: number;
 }
 
 export interface GameEventListeners {
@@ -46,6 +64,10 @@ export interface GameEventListeners {
   onCoreDefeated?: (core: Core) => void;
   onCoreSpawned?: (core: Core) => void;
   onLifeUp?: () => void;
+  onGrazeChange?: (count: number) => void;
+  // ボス撃破・満タン時の残機回復弾など、まとまった加点が入った瞬間に通知する
+  // (GRAZEの細かい加点はここには含めない、main.ts側の演出用)。
+  onScoreBonus?: (amount: number) => void;
 }
 
 export class GameState {
@@ -55,6 +77,9 @@ export class GameState {
   life = INITIAL_LIFE;
   score = 0;
   gameOver = false;
+  grazeCount = 0;
+  // GRAZE・満タン時の残機回復弾・コア撃破など、経過時間以外での加点をまとめて積む。
+  private bonusScore = 0;
   private causeShortcode: string | null = null;
   private causeImg: HTMLImageElement | null = null;
   private readonly startedAt: number;
@@ -112,12 +137,18 @@ export class GameState {
       dtSec,
       now,
       this.canvas.width,
+      this.canvas.height,
       intensity,
       this.player.x,
       this.player.y,
       this.bullets,
       {
-        onCoreDefeated: (core) => this.listeners.onCoreDefeated?.(core),
+        onCoreDefeated: (core) => {
+          const bonus = CORE_DEFEAT_SCORE_BONUS[core.tier];
+          this.bonusScore += bonus;
+          this.listeners.onScoreBonus?.(bonus);
+          this.listeners.onCoreDefeated?.(core);
+        },
         onCoreSpawned: (core) => this.listeners.onCoreSpawned?.(core),
       },
     );
@@ -133,7 +164,11 @@ export class GameState {
       if (hitIndex !== -1) this.handlePlayerHit(this.bullets[hitIndex], now);
     }
 
-    this.score = Math.floor(((now - this.startedAt) / 1000) * SCORE_PER_SECOND);
+    // 実際に当たった弾は上のhandlePlayerHitで既にbulletsから除去済みなので、
+    // ここに残っている弾だけを対象にGRAZE判定を行える。
+    this.updateGraze();
+
+    this.score = Math.floor(((now - this.startedAt) / 1000) * SCORE_PER_SECOND) + this.bonusScore;
     this.listeners.onScoreChange?.(this.score);
   }
 
@@ -204,12 +239,32 @@ export class GameState {
     return dx * dx + dy * dy <= rSum * rSum;
   }
 
+  private updateGraze(): void {
+    for (const b of this.bullets) {
+      if (b.isLifeUp || b.grazed) continue;
+      const dx = b.x - this.player.x;
+      const dy = b.y - this.player.y;
+      const rSum = b.hitRadius + this.player.hitRadius + GRAZE_MARGIN_PX;
+      if (dx * dx + dy * dy > rSum * rSum) continue;
+      b.grazed = true;
+      this.grazeCount += 1;
+      this.bonusScore += GRAZE_SCORE_BONUS;
+      this.listeners.onGrazeChange?.(this.grazeCount);
+    }
+  }
+
   private handlePlayerHit(bullet: Bullet, now: number): void {
     this.bullets = this.bullets.filter((b) => b.id !== bullet.id);
 
     if (bullet.isLifeUp) {
-      this.life = Math.min(this.life + 1, INITIAL_LIFE);
-      this.listeners.onLifeChange?.(this.life);
+      if (this.life < INITIAL_LIFE) {
+        this.life += 1;
+        this.listeners.onLifeChange?.(this.life);
+      } else {
+        // 残機が満タンなら回復しても無駄になるだけなので、代わりに加点する。
+        this.bonusScore += LIFE_UP_OVERFLOW_SCORE_BONUS;
+        this.listeners.onScoreBonus?.(LIFE_UP_OVERFLOW_SCORE_BONUS);
+      }
       this.listeners.onLifeUp?.();
       return;
     }
@@ -227,6 +282,7 @@ export class GameState {
         survivedMs: this.survivedMs(now),
         causeShortcode: this.causeShortcode,
         causeImg: this.causeImg,
+        grazeCount: this.grazeCount,
       });
     }
   }

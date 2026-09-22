@@ -155,6 +155,100 @@ body::before {
     color: #8fa3ad;
 }
 
+.link-button {
+    background: none;
+    border: none;
+    color: #8fa3ad;
+    text-decoration: underline;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* 絵文字コレクション(遭遇したカスタム絵文字の図鑑)。localStorageに保存された
+   ものをタイトル画面からいつでも見られる。 */
+.collection-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 6, 10, 0.9);
+}
+.collection-overlay[hidden] {
+    display: none;
+}
+.collection-panel {
+    width: min(480px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #0c1117;
+    border: 1px solid rgba(124, 247, 255, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+}
+.collection-panel h2 {
+    margin: 0;
+    text-align: center;
+    color: #7cf7ff;
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 10px rgba(124, 247, 255, 0.6);
+}
+.collection-list {
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+    padding: 4px;
+}
+.collection-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    background: rgba(124, 247, 255, 0.05);
+    border: 1px solid rgba(124, 247, 255, 0.15);
+    border-radius: 6px;
+}
+.collection-entry img {
+    width: 36px;
+    height: 36px;
+}
+.collection-entry .count {
+    font-size: 0.75rem;
+    color: #7cf7ff;
+}
+.collection-entry .shortcode {
+    font-size: 0.6rem;
+    color: #8fa3ad;
+    text-align: center;
+    word-break: break-all;
+}
+.collection-empty {
+    text-align: center;
+    color: #8fa3ad;
+    font-size: 0.85rem;
+    padding: 20px 0;
+}
+#collectionCloseButton {
+    align-self: center;
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid #2a3a42;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+#collectionCloseButton:active {
+    transform: translateY(1px);
+}
+
 /* STARTボタン押下後、ゲーム開始までの一瞬に挟む起動演出。裏側は既に
    startGame()が動き出していてよく、あくまで見た目の飾り。 */
 .start-progress {
@@ -219,8 +313,6 @@ body::before {
     left: 8px;
     right: 8px;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
     font-size: 0.85rem;
     color: #7cf7ff;
     pointer-events: none;
@@ -231,11 +323,29 @@ body::before {
     flex-direction: column;
     gap: 2px;
 }
-.hud-right {
+/* ボス撃破・満タン時の残機回復弾など、まとまった加点が入った瞬間だけ
+   SCOREの右に一瞬表示する(main.ts: flashScoreBonus参照)。 */
+.hud-score-bonus {
+    margin-left: 6px;
+    color: #f0c100;
+    text-shadow: 0 0 8px rgba(240, 193, 0, 0.7);
+}
+.hud-score-bonus[hidden] {
+    display: none;
+}
+/* ストリーム状態・流速・ハッタリ数値。スマホ幅だと右上に置くと一時停止
+   ボタン(上部中央)と被るため、左下に寄せる。 */
+.hud-secondary {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
     gap: 2px;
+    font-size: 0.85rem;
+    color: #7cf7ff;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(124, 247, 255, 0.6);
 }
 /* 連合TLの実測流速(notes/min)。短い窓の実測値を60秒換算しているだけなので、
    1分ごとではなく投稿が来るたびに滑らかに変化する。 */
@@ -408,8 +518,7 @@ body::before {
     display: none;
 }
 
-/* 一時停止ボタン。HUD左右の文字(.hud-left/.hud-right)と重ならないよう、
-   その間の空いている上部中央に置く。 */
+/* 一時停止ボタン。HUD(.hud-left)の文字と重ならないよう上部中央に置く。 */
 #pauseButton {
     position: absolute;
     top: 6px;

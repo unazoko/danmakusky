@@ -165,7 +165,6 @@ const CUT_IN_QUOTES: Record<CoreTier, readonly string[]> = {
     "逃げたら一つ、進めば...",
     "この戦いに意味はない",
     "意味はないが、負けるわけにはいかない",
-    "私はただ勘がいいだけの男です"
   ],
 };
 export function randomCutInQuote(tier: CoreTier): string {

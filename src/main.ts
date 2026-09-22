@@ -2,7 +2,6 @@ import { MisskeyStream, type StreamStatus } from "./misskeyStream.js";
 import { extractEmojiOccurrences, type EmojiOccurrence } from "./noteEmoji.js";
 import {
   getOrLoadEmojiImage,
-  isImageReady,
   randomCachedEmojiImage,
   drawBullets,
   drawPlayer,
@@ -16,6 +15,7 @@ import { buildShareText, openShareForm } from "./share.js";
 import { getHighScore, updateHighScore } from "./storage.js";
 import { ReactionTracker } from "./reactionTracker.js";
 import { NoteRateTracker } from "./noteRate.js";
+import { recordEmojiEncounter, getCollection } from "./emojiCollection.js";
 import {
   cutInTierLabel,
   fakeDensityPercent,
@@ -51,6 +51,9 @@ const hudTime = $<HTMLSpanElement>("#hudTime");
 const gameOverCause = $<HTMLParagraphElement>("#gameOverCause");
 const resultScore = $<HTMLElement>("#resultScore");
 const resultTime = $<HTMLElement>("#resultTime");
+const resultGraze = $<HTMLElement>("#resultGraze");
+const hudGraze = $<HTMLSpanElement>("#hudGraze");
+const hudScoreBonus = $<HTMLSpanElement>("#hudScoreBonus");
 const highScoreLine = $<HTMLParagraphElement>("#highScoreLine");
 const backToTitleButton = $<HTMLButtonElement>("#backToTitleButton");
 const retryButton = $<HTMLButtonElement>("#retryButton");
@@ -80,6 +83,10 @@ const pauseOverlay = $<HTMLDivElement>("#pauseOverlay");
 const resumeButton = $<HTMLButtonElement>("#resumeButton");
 const pauseRetryButton = $<HTMLButtonElement>("#pauseRetryButton");
 const pauseBackToTitleButton = $<HTMLButtonElement>("#pauseBackToTitleButton");
+const collectionButton = $<HTMLButtonElement>("#collectionButton");
+const collectionOverlay = $<HTMLDivElement>("#collectionOverlay");
+const collectionList = $<HTMLDivElement>("#collectionList");
+const collectionCloseButton = $<HTMLButtonElement>("#collectionCloseButton");
 
 function normalizeHost(raw: string): string | null {
   const trimmed = raw
@@ -93,7 +100,8 @@ function normalizeHost(raw: string): string | null {
 function renderLifeHearts(life: number): void {
   const filled = "♥".repeat(Math.max(life, 0));
   const empty = "♡".repeat(Math.max(INITIAL_LIFE - life, 0));
-  hudLife.textContent = `LIFE ${filled}${empty}`;
+  const maxLabel = life >= INITIAL_LIFE ? " MAX" : "";
+  hudLife.textContent = `LIFE ${filled}${empty}${maxLabel}`;
 }
 
 const STATUS_LABELS: Record<StreamStatus, string> = {
@@ -176,6 +184,19 @@ function flashCoreMessage(text: string): void {
   coreMessageHideTimer = setTimeout(() => {
     coreMessage.hidden = true;
   }, 1800);
+}
+
+// ボス撃破・満タン時の残機回復弾など、まとまった加点があった瞬間だけSCOREの
+// 右に一瞬表示する。表示中に次の加点が来た場合は、新しい方を優先して
+// 表示し直す(タイマーもリセットする)。
+let scoreBonusHideTimer: ReturnType<typeof setTimeout> | undefined;
+function flashScoreBonus(amount: number): void {
+  clearTimeout(scoreBonusHideTimer);
+  hudScoreBonus.textContent = `(+${amount.toLocaleString()})`;
+  hudScoreBonus.hidden = false;
+  scoreBonusHideTimer = setTimeout(() => {
+    hudScoreBonus.hidden = true;
+  }, 800);
 }
 
 // コア出現時のカットイン演出(東方Project的なボス登場演出)。雑魚(weak)は
@@ -275,6 +296,7 @@ function showGameOver(info: GameOverInfo): void {
 
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
+  resultGraze.textContent = info.grazeCount.toLocaleString();
 
   const isNewHighScore = updateHighScore(info.score);
   highScoreLine.textContent = isNewHighScore
@@ -305,6 +327,10 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
       onCoreDefeated: () => flashCoreMessage(randomCoreDefeatLine()),
       onCoreSpawned: (core) => enqueueCutIn(core),
       onLifeUp: () => flashCoreMessage(randomLifeUpLine()),
+      onGrazeChange: (count) => {
+        hudGraze.textContent = `GRAZE ${count.toLocaleString()}`;
+      },
+      onScoreBonus: (amount) => flashScoreBonus(amount),
     },
     now,
     presetShipImg,
@@ -312,6 +338,9 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
   renderLifeHearts(INITIAL_LIFE);
   hudScore.textContent = "SCORE 0";
   hudTime.textContent = "TIME 00:00.0";
+  hudGraze.textContent = "GRAZE 0";
+  clearTimeout(scoreBonusHideTimer);
+  hudScoreBonus.hidden = true;
 
   // 溜まっていた絵文字出現(接続直後〜自機決定前)をここで反映する。
   if (pendingOccurrences.length > 0) {
@@ -389,6 +418,13 @@ function startGame(host: string): void {
 
       const occurrences = extractEmojiOccurrences(note);
       if (occurrences.length === 0) return;
+      for (const o of occurrences) {
+        recordEmojiEncounter(o.shortcode, o.url);
+        // 選ばれなかった絵文字も含めて読み込みだけは進めておく。自機候補
+        // (chosenShipImg)がタイムアウトまでに読み込み終わらなかった場合、
+        // ここで先読みした分がrandomCachedEmojiImage()のフォールバック候補になる。
+        getOrLoadEmojiImage(o.url);
+      }
       const t = gameNow();
       if (!playerEmojiChosen) {
         // ここに来る(playerEmojiChosenがfalseのまま)のは、進捗演出中もその後も
@@ -396,18 +432,25 @@ function startGame(host: string): void {
         // 一度でも自機が決まったら(キャッシュ代役も含め)ここは二度と通らないため、
         // プレイ中に見た目が変わることはない。
         const picked = occurrences[Math.floor(Math.random() * occurrences.length)];
-        chosenShipImg = getOrLoadEmojiImage(picked.url);
+        const candidate = getOrLoadEmojiImage(picked.url);
+        chosenShipImg = candidate;
         playerEmojiChosen = true;
-        if (game) game.player.emojiImg = chosenShipImg;
-        if (isImageReady(chosenShipImg)) {
-          shipReady = true;
-        } else {
-          const markReady = () => {
-            shipReady = true;
-          };
-          chosenShipImg.addEventListener("load", markReady, { once: true });
-          chosenShipImg.addEventListener("error", markReady, { once: true });
-        }
+        if (game) game.player.emojiImg = candidate;
+        // 画像そのもののダウンロード完了は待たない。決まった時点で確定でき、
+        // 見た目は他の弾・コアの絵文字と同じく読み込み終わり次第自然に表示
+        // される(ネットワークが遅くてもプログレス演出を長引かせずに済む)。
+        shipReady = true;
+        // ただし画像そのものが壊れている/読み込みに失敗した場合は、確定した
+        // ままだと自機がずっと非表示になってしまうので、選び直せるよう
+        // 状態を巻き戻す(次に届く投稿で再抽選される)。
+        candidate.addEventListener(
+          "error",
+          () => {
+            playerEmojiChosen = false;
+            chosenShipImg = null;
+          },
+          { once: true },
+        );
       }
       if (game) game.handleEmojiOccurrences(occurrences, t);
       else pendingOccurrences.push(...occurrences);
@@ -430,6 +473,7 @@ function startGame(host: string): void {
   });
   reactionTracker = new ReactionTracker(stream, (reaction) => {
     if (paused) return;
+    recordEmojiEncounter(reaction.shortcode, reaction.url);
     game?.handleEmojiOccurrences([reaction], gameNow());
   });
   stream.connect();
@@ -437,16 +481,14 @@ function startGame(host: string): void {
   runStartProgress(
     () => shipReady,
     () => {
-      // chosenShipImgがあっても、その画像自体の読み込みがタイムアウトまでに
-      // 間に合わなかった場合は表示できないままになってしまうので、その場合も
-      // 「投稿が来なかった」場合と同様にキャッシュ済み絵文字へフォールバックする。
-      if (chosenShipImg && isImageReady(chosenShipImg)) {
+      if (chosenShipImg) {
         revealGame(chosenShipImg);
         return;
       }
-      // 既に読み込み済みの絵文字(コアの弾等で先に流れてきたもの)があれば
-      // それを代役の自機にする。プレイ中に見た目が変わるのは不自然なので、
-      // 一度これに決めたら(startRound内でpresetShipImgとして)以後は変えない。
+      // タイムアウトまでに投稿が1件も来なかった場合のみここに来る。既に
+      // 読み込み済みの絵文字(コアの弾等で先に流れてきたもの)があればそれを
+      // 代役の自機にする。プレイ中に見た目が変わるのは不自然なので、一度
+      // これに決めたら(startRound内でpresetShipImgとして)以後は変えない。
       revealGame(randomCachedEmojiImage());
     },
   );
@@ -524,11 +566,12 @@ function resumeGame(): void {
 }
 
 // STARTボタン押下時の起動演出。最初のSTART_PROGRESS_MIN_MSは演出として
-// 必ず流れるが、その後はisReady()(=自機絵文字の選定・画像読込の完了)が
+// 必ず流れるが、その後はisReady()(=自機に使う絵文字が決まったか。画像自体の
+// ダウンロード完了は待たない、他の弾・コア同様読み込み次第自然に表示される)が
 // trueになるまで進み切らない。ただし連合TLが静かで絵文字入り投稿がなかなか
 // 来ない場合に無限に待たされないよう、START_PROGRESS_TIMEOUT_MSで打ち切る。
 const START_PROGRESS_MIN_MS = 1400;
-const START_PROGRESS_TIMEOUT_MS = 6000;
+const START_PROGRESS_TIMEOUT_MS = 8000;
 function runStartProgress(isReady: () => boolean, onComplete: () => void): void {
   startProgress.hidden = false;
   const startedAt = performance.now();
@@ -582,8 +625,11 @@ backToTitleButton.onclick = () => {
   backToTitle();
 };
 
+// retryも初回開始と同じく、次の投稿が届くまで自機なしで始まってしまう
+// (プレイ中ずっと投稿が来ないインスタンスだと特に目立つ)のを避けるため、
+// 読み込み済みのキャッシュから自機を再抽選する。
 retryButton.onclick = () => {
-  startRound(gameNow());
+  startRound(gameNow(), randomCachedEmojiImage());
 };
 
 pauseButton.onclick = () => {
@@ -594,7 +640,7 @@ resumeButton.onclick = () => resumeGame();
 pauseRetryButton.onclick = () => {
   paused = false;
   pauseOverlay.hidden = true;
-  startRound(gameNow());
+  startRound(gameNow(), randomCachedEmojiImage());
 };
 pauseBackToTitleButton.onclick = () => {
   backToTitle();
@@ -607,6 +653,41 @@ window.addEventListener("keydown", (ev) => {
   if (paused) resumeGame();
   else pauseGame();
 });
+
+function renderCollection(): void {
+  const entries = getCollection();
+  collectionList.replaceChildren();
+  if (entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "collection-empty";
+    empty.textContent = "まだ何も記録されていません。プレイして絵文字と出会おう。";
+    collectionList.append(empty);
+    return;
+  }
+  for (const entry of entries) {
+    const el = document.createElement("div");
+    el.className = "collection-entry";
+    const img = document.createElement("img");
+    img.src = entry.url;
+    img.alt = entry.shortcode;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = `${entry.count.toLocaleString()}回`;
+    const shortcode = document.createElement("span");
+    shortcode.className = "shortcode";
+    shortcode.textContent = entry.shortcode;
+    el.append(img, count, shortcode);
+    collectionList.append(el);
+  }
+}
+
+collectionButton.onclick = () => {
+  renderCollection();
+  collectionOverlay.hidden = false;
+};
+collectionCloseButton.onclick = () => {
+  collectionOverlay.hidden = true;
+};
 
 // 投稿は必ずこのボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。
 shareButton.onclick = () => {

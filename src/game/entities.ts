@@ -53,6 +53,8 @@ export interface Bullet {
   isLifeUp?: boolean;
   // splitter等、寿命が尽きて次のフレームで消えるべき弾に立てるフラグ。
   dead?: boolean;
+  // GRAZE(ニアミス)判定済みかどうか。同じ弾で何度も加点されないようにする。
+  grazed?: boolean;
 }
 
 // コアの強さの階級。
@@ -74,10 +76,9 @@ export interface Core {
   spriteSize: number;
   hitRadius: number;
   img: HTMLImageElement;
-  // 移動パターン用の状態(弱=ふらふら移動、強=往復or円運動、中=不使用)。
+  // 移動パターン用の状態(弱=左右の正弦波の位相・中央x、中=水平往復の中心x)。
   moveAngle: number;
   moveOriginX: number;
-  moveOriginY: number;
   spawnedAt: number;
   nextAttackAt: number;
   // 螺旋・連続回転攻撃用に積み上げていく角度(移動角とは別管理)。

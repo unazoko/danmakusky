@@ -27,6 +27,15 @@
         </ul>
         <p class="controls-help-note">スマホ: ドラッグで移動 / 画面のFIREボタンで発射</p>
       </div>
+      <button id="collectionButton" type="button" class="link-button">絵文字コレクションを見る</button>
+    </div>
+
+    <div id="collectionOverlay" class="collection-overlay" hidden>
+      <div class="collection-panel">
+        <h2>EMOJI COLLECTION</h2>
+        <div id="collectionList" class="collection-list"></div>
+        <button id="collectionCloseButton" type="button">閉じる</button>
+      </div>
     </div>
 
     <div id="startProgress" class="start-progress" hidden>
@@ -39,15 +48,16 @@
       <canvas id="gameCanvas"></canvas>
       <div id="hud" class="hud">
         <span class="hud-left">
-          <span id="hudScore">SCORE 0</span>
+          <span id="hudScore">SCORE 0</span><span id="hudScoreBonus" class="hud-score-bonus" hidden></span>
           <span id="hudLife">LIFE ♥♥♥</span>
           <span id="hudTime">TIME 00:00.0</span>
+          <span id="hudGraze">GRAZE 0</span>
         </span>
-        <span class="hud-right">
-          <span id="hudStatus" class="hud-status"></span>
-          <span id="hudRate" class="hud-rate"></span>
-          <span id="hudFake" class="hud-fake"></span>
-        </span>
+      </div>
+      <div id="hudSecondary" class="hud-secondary">
+        <span id="hudFake" class="hud-fake"></span>
+        <span id="hudRate" class="hud-rate"></span>
+        <span id="hudStatus" class="hud-status"></span>
       </div>
       <div id="densityWarning" class="density-warning" hidden>
         ⚠ OVERFLOW WARNING ⚠<br />STREAM DENSITY: CRITICAL<br />EMOJI SATURATION: MAXIMUM
@@ -84,6 +94,7 @@
       <dl class="result-stats">
         <div><dt>SCORE</dt><dd id="resultScore">0</dd></div>
         <div><dt>TIME</dt><dd id="resultTime">00:00.0</dd></div>
+        <div><dt>GRAZE</dt><dd id="resultGraze">0</dd></div>
       </dl>
       <p id="highScoreLine" class="high-score-line"></p>
       <div class="result-buttons">

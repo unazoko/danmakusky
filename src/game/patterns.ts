@@ -88,6 +88,37 @@ export function concentricRingsVelocities(ringCount: number, perRingCount: numbe
   return result;
 }
 
+// 自機方向を中心とした扇状の拡散弾(自機狙い弾の束)。東方でよくある
+// 「複数弾がまとまって自機を狙う」パターン。
+export function aimedFanVelocities(
+  count: number,
+  spreadRad: number,
+  originX: number,
+  originY: number,
+  targetX: number,
+  targetY: number,
+): Velocity[] {
+  const baseAngle = angleTo(originX, originY, targetX, targetY);
+  const speed = randomSpeed();
+  const result: Velocity[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0 : i / (count - 1) - 0.5; // -0.5〜0.5
+    result.push(velocityFromAngle(baseAngle + t * spreadRad, speed));
+  }
+  return result;
+}
+
+// 十字(4方向)弾。baseAngleを発生ごとに少しずつずらして呼ぶと、風車のように
+// 回転しながら十字を撒き続ける見た目になる(東方の「風車」型弾幕を参考)。
+const CROSS_SPEED = 120;
+export function crossBurstVelocities(baseAngle: number): Velocity[] {
+  const result: Velocity[] = [];
+  for (let i = 0; i < 4; i++) {
+    result.push(velocityFromAngle(baseAngle + (Math.PI / 2) * i, CROSS_SPEED));
+  }
+  return result;
+}
+
 // --- ここから毎フレーム状態を進める系(game/bulletMotion.ts参照) -----------
 
 // ゆっくり追尾。初速はプレイヤー方向に緩く向け、以降は少しずつ曲げ続ける。
