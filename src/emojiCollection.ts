@@ -2,8 +2,25 @@
 // URLをキーにする(連合先が異なると同じショートコードでも別画像になりうるため、
 // render.tsの画像キャッシュと同じ方針)。
 const COLLECTION_KEY = "danmakusky-emoji-collection";
-// 際限なく増え続けないよう、新規登録はここで頭打ちにする(既存分の回数更新は続ける)。
-const MAX_ENTRIES = 300;
+// 際限なく増え続けないよう、件数はここで頭打ちにする。上限に達した状態で
+// 新しい絵文字と出会った場合は、一番遭遇回数の少ないものを1件間引いて
+// 枠を空ける(単に新規登録を拒否すると、上限到達後は二度と新しい絵文字が
+// 記録されなくなってしまうため)。
+const MAX_ENTRIES = 1024;
+
+function makeRoomForNewEntry(data: Record<string, CollectionEntry>): void {
+  if (Object.keys(data).length < MAX_ENTRIES) return;
+  let leastUrl: string | null = null;
+  let leastTotal = Infinity;
+  for (const [url, entry] of Object.entries(data)) {
+    const total = entry.count + (entry.defeatCount ?? 0);
+    if (total < leastTotal) {
+      leastTotal = total;
+      leastUrl = url;
+    }
+  }
+  if (leastUrl !== null) delete data[leastUrl];
+}
 
 export interface CollectionEntry {
   shortcode: string;
@@ -36,7 +53,7 @@ export function recordEmojiEncounter(shortcode: string, url: string): void {
   if (existing) {
     existing.count += 1;
   } else {
-    if (Object.keys(data).length >= MAX_ENTRIES) return;
+    makeRoomForNewEntry(data);
     data[url] = { shortcode, url, count: 1, defeatCount: 0 };
   }
   localStorage.setItem(COLLECTION_KEY, JSON.stringify(data));
@@ -50,7 +67,7 @@ export function recordEmojiDefeat(shortcode: string, url: string): void {
   if (existing) {
     existing.defeatCount = (existing.defeatCount ?? 0) + 1;
   } else {
-    if (Object.keys(data).length >= MAX_ENTRIES) return;
+    makeRoomForNewEntry(data);
     data[url] = { shortcode, url, count: 0, defeatCount: 1 };
   }
   localStorage.setItem(COLLECTION_KEY, JSON.stringify(data));

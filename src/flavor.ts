@@ -75,6 +75,7 @@ const GLITCH_LINES = [
   "重要ではない処理を優先しています",
   "防衛システムは正常です",
   "ミスキー粒子濃度上昇",
+  "-乱数回避機動-",
 ];
 export function randomGlitchLine(): string {
   return pick(GLITCH_LINES);
@@ -83,16 +84,17 @@ export function randomGlitchLine(): string {
 // --- 撃墜(ゲームオーバー)時の煽り文言 ---
 
 const DEATH_INTROS = [
-  "正体不明の絵文字弾が\n防衛ラインを突破しました",
-  "敵対的な絵文字との\n致命的な接触を確認",
-  "絵文字が機体を侵徹",
+  "正体不明のカスタム絵文字弾が\n防衛ラインを突破しました",
+  "敵対的なカスタム絵文字との\n致命的な接触を確認",
+  "カスタム絵文字が機体を侵徹",
   "SOUSA-MISS",
   "回避に失敗しました",
   "起床が遅延しました",
-  "防衛ライン崩壊\n原因：絵文字",
+  "防衛ライン崩壊\n原因：カスタム絵文字",
   "回避行動に失敗",
   "致命的損傷を確認",
   "防御システム全滅\n絵文字に負けました",
+  "下手",
   "防衛作戦終了\nお疲れさまでした",
 ];
 export function randomDeathIntro(): string {
@@ -127,6 +129,7 @@ const LIFE_UP_LINES = [
   "EMERGENCY REVIVAL SUCCESSFUL",
   "大丈夫なことにします",
   "残機が増えました",
+  "うれしい",
   "SYSTEM: もう一回だけ",
   "復活しました",
 ];
@@ -158,7 +161,8 @@ const CUT_IN_QUOTES: Record<CoreTier, readonly string[]> = {
     "ざぁこ♥♥♥",
     "さらに前へ…もっと前へ！",
     "乗るしかない、このビッグウェーブに",
-    "初カキコ…ども…"
+    "初カキコ…ども…",
+    "あれはカスタムだ、私がそう判断した",
   ],
   strong: [
     "覚悟した方がいい",

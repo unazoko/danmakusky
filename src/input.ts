@@ -23,6 +23,10 @@ const MOVE_KEYS = new Set([
 const FOCUS_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 const FIRE_KEYS = new Set(["KeyZ", "Space"]);
 
+// タッチ操作は指の真下に自機が来ると指で隠れて見えなくなるため、検出位置
+// より上に自機を表示させる(=自機位置を指の位置そのものにしない)。
+const TOUCH_LIFT_PX = 60;
+
 export class InputController {
   private pressedKeys = new Set<string>();
   private focusHeld = false;
@@ -31,6 +35,10 @@ export class InputController {
   private dragging = false;
   private dragX = 0;
   private dragY = 0;
+  // スマホの発射ボタン要素。自機がこの真下に潜り込んで隠れたり、ドラッグ中に
+  // ボタン上へ着地した指がボタンへの新規タップと誤認されて操作を奪われたり
+  // しないよう、自機がこのボタンの領域に重ならないようにする。
+  private fireButtonEl: HTMLElement | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener("keydown", this.onKeyDown);
@@ -70,6 +78,40 @@ export class InputController {
 
     player.x = clamp(player.x, player.hitRadius, this.canvas.width - player.hitRadius);
     player.y = clamp(player.y, player.hitRadius, this.canvas.height - player.hitRadius);
+
+    if (this.dragging && this.fireButtonEl) {
+      this.keepOutOfFireButton(player);
+    }
+  }
+
+  // スマホの発射ボタン(main.ts側のDOM要素)を登録する。ボタンは画面上に
+  // 固定表示されている別要素で、canvasとは独立に自身のpointerdownを奪う
+  // ため、自機がその真下に来ないようにここで押し出す。
+  setFireButtonElement(el: HTMLElement): void {
+    this.fireButtonEl = el;
+  }
+
+  private keepOutOfFireButton(player: Player): void {
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const btnRect = this.fireButtonEl!.getBoundingClientRect();
+    const margin = player.spriteSize / 2;
+    const left = btnRect.left - canvasRect.left - margin;
+    const right = btnRect.right - canvasRect.left + margin;
+    const top = btnRect.top - canvasRect.top - margin;
+    const bottom = btnRect.bottom - canvasRect.top + margin;
+    if (player.x < left || player.x > right || player.y < top || player.y > bottom) return;
+
+    // 自機の中心がボタン領域(+余白)に入り込んでいる場合、一番近い辺まで
+    // 押し出す(finger位置自体は変えず、見た目の自機位置だけをずらす)。
+    const distLeft = player.x - left;
+    const distRight = right - player.x;
+    const distTop = player.y - top;
+    const distBottom = bottom - player.y;
+    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+    if (minDist === distLeft) player.x = left;
+    else if (minDist === distRight) player.x = right;
+    else if (minDist === distTop) player.y = top;
+    else player.y = bottom;
   }
 
   private keyboardDirection(): { x: number; y: number } {
@@ -138,7 +180,7 @@ export class InputController {
   private updateDragPosition(ev: PointerEvent): void {
     const rect = this.canvas.getBoundingClientRect();
     this.dragX = ev.clientX - rect.left;
-    this.dragY = ev.clientY - rect.top;
+    this.dragY = ev.clientY - rect.top - TOUCH_LIFT_PX;
   }
 }
 

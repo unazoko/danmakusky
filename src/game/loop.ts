@@ -15,7 +15,7 @@ import { BulletSpawner } from "./spawner.js";
 import { CoreManager } from "./coreManager.js";
 import { updateBullet } from "./bulletMotion.js";
 
-export const INITIAL_LIFE = 8;
+export const INITIAL_LIFE = 6;
 const SCORE_PER_SECOND = 100;
 // 被弾直後、この時間は無敵にする(同時多発的な多重被弾で瞬時に残機を失うのを防ぐ、
 // 東方含む弾幕STGの定石)。

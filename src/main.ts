@@ -557,6 +557,7 @@ function startGame(host: string): void {
 function revealGame(shipImg: HTMLImageElement | null): void {
   titleScreen.hidden = true;
   input = new InputController(canvas);
+  input.setFireButtonElement(fireButton);
   wireFireButton(input);
   runBootSequence();
 
