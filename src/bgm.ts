@@ -9,9 +9,9 @@ const BGM_FILES = [
   "魔王魂 ループ サイバー16.mp3",
 ];
 
-const NORMAL_VOLUME = 0.5;
+const NORMAL_VOLUME = 0.30;
 // PAUSE中は「一時停止していることが分かる」程度まで下げる(消音にはしない)。
-const PAUSED_VOLUME = 0.15;
+const PAUSED_VOLUME = 0.08;
 
 let current: HTMLAudioElement | null = null;
 // ミュート中でも「本来鳴らすべき音量」は覚えておき、ミュート解除時に復元する。

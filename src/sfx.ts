@@ -7,7 +7,10 @@
 // 作るだけにすることで、この上限を回避する。
 import { isMuted } from "./audioSettings.js";
 
-const SFX_VOLUME = 0.6;
+// Web Audio API(GainNode)なら<audio>と違って1.0を超える音量を指定できる
+// (=素材そのものの音量を底上げできる)。BGMに対して効果音が相対的に
+// 小さく聞こえたため、全体的にBGMより大きめの値にしている。
+const SFX_VOLUME = 1.0;
 
 let audioContext: AudioContext | null = null;
 function getAudioContext(): AudioContext {
@@ -75,35 +78,35 @@ function playSfxAwait(filename: string, volume: number = SFX_VOLUME): Promise<vo
 }
 
 export function playStartScreenSfx(): void {
-  playSfx("スタート画面.mp3", 1.0);
+  playSfx("スタート画面.mp3", 1.4);
 }
 
 export function playResultSfx(): void {
-  playSfx("結果.mp3", 0.8);
+  playSfx("結果.mp3", 1.0);
 }
 
 // 残機がなくなった瞬間(ゲームオーバー確定時)に1回だけ鳴らす。結果画面は
 // これが鳴り終わってから表示するため、Promiseを返す。
 export function playPlayerDownSfx(): Promise<void> {
-  return playSfxAwait("自機撃墜.mp3");
+  return playSfxAwait("自機撃墜.mp3", 1.2);
 }
 
 export function playWeakOrMidBossDownSfx(): void {
-  playSfx("弱・中ボス撃墜.mp3", 1.0);
+  playSfx("弱・中ボス撃墜.mp3", 1.4);
 }
 
 export function playStrongBossDownSfx(): void {
-  playSfx("強ボス撃墜.mp3", 1.0);
+  playSfx("強ボス撃墜.mp3", 1.4);
 }
 
 export function playGrazeSfx(): void {
-  playSfx("グレイズ.mp3", 0.6);
+  playSfx("グレイズ.mp3", 1.0);
 }
 
 export function playShotSfx(): void {
-  playSfx("射撃.mp3", 0.85);
+  playSfx("射撃.mp3", 1.3);
 }
 
 export function playLifeUpSfx(): void {
-  playSfx("残機回復.mp3", 0.85);
+  playSfx("残機回復.mp3", 1.2);
 }
