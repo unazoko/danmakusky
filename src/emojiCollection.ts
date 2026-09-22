@@ -60,3 +60,8 @@ export function recordEmojiDefeat(shortcode: string, url: string): void {
 export function getCollection(): CollectionEntry[] {
   return Object.values(ensureLoaded()).sort((a, b) => b.count - a.count);
 }
+
+export function clearCollection(): void {
+  cache = {};
+  localStorage.removeItem(COLLECTION_KEY);
+}

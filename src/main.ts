@@ -1,3 +1,4 @@
+import { marked } from "marked";
 import { MisskeyStream, type StreamStatus } from "./misskeyStream.js";
 import { extractEmojiOccurrences, type EmojiOccurrence } from "./noteEmoji.js";
 import {
@@ -12,10 +13,16 @@ import { InputController } from "./input.js";
 import { GameState, INITIAL_LIFE, type GameOverInfo } from "./game/loop.js";
 import { formatTime } from "./format.js";
 import { buildShareText, openShareForm } from "./share.js";
-import { getHighScore, updateHighScore } from "./storage.js";
+import { getHighScore, updateHighScore, clearHighScore } from "./storage.js";
 import { ReactionTracker } from "./reactionTracker.js";
 import { NoteRateTracker } from "./noteRate.js";
-import { recordEmojiEncounter, recordEmojiDefeat, getCollection, type CollectionEntry } from "./emojiCollection.js";
+import {
+  recordEmojiEncounter,
+  recordEmojiDefeat,
+  getCollection,
+  clearCollection,
+  type CollectionEntry,
+} from "./emojiCollection.js";
 import { Starfield } from "./starfield.js";
 import {
   cutInTierLabel,
@@ -32,6 +39,8 @@ import {
   START_PROGRESS_LABELS,
 } from "./flavor.js";
 import type { Core } from "./game/entities.js";
+// 確認ダイアログの本文はビルド時に埋め込む(?rawで文字列として取り込む)。
+import clearDataConfirmMd from "./docs/データ削除確認.md?raw";
 
 function $<T extends HTMLElement>(selector: string): T {
   const el = document.querySelector<T>(selector);
@@ -94,6 +103,14 @@ const collectionDetailShortcode = $<HTMLParagraphElement>("#collectionDetailShor
 const collectionDetailCount = $<HTMLElement>("#collectionDetailCount");
 const collectionDetailDefeat = $<HTMLElement>("#collectionDetailDefeat");
 const collectionDetailCloseButton = $<HTMLButtonElement>("#collectionDetailCloseButton");
+const clearDataButton = $<HTMLButtonElement>("#clearDataButton");
+const clearDataOverlay = $<HTMLDivElement>("#clearDataOverlay");
+const clearDataMessage = $<HTMLDivElement>("#clearDataMessage");
+const clearDataCancelButton = $<HTMLButtonElement>("#clearDataCancelButton");
+const clearDataConfirmButton = $<HTMLButtonElement>("#clearDataConfirmButton");
+// 内容はdanmakusky自身がビルド時に同梱する文書(利用者の入力ではない)なので、
+// サニタイズせずそのままinnerHTMLへ描画してよい。
+clearDataMessage.innerHTML = marked.parse(clearDataConfirmMd, { async: false }) as string;
 
 function normalizeHost(raw: string): string | null {
   const trimmed = raw
@@ -743,6 +760,18 @@ collectionCloseButton.onclick = () => {
 };
 collectionDetailCloseButton.onclick = () => {
   collectionDetailOverlay.hidden = true;
+};
+
+clearDataButton.onclick = () => {
+  clearDataOverlay.hidden = false;
+};
+clearDataCancelButton.onclick = () => {
+  clearDataOverlay.hidden = true;
+};
+clearDataConfirmButton.onclick = () => {
+  clearHighScore();
+  clearCollection();
+  clearDataOverlay.hidden = true;
 };
 
 // 投稿は必ずこのボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。

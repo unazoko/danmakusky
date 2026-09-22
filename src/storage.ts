@@ -15,3 +15,7 @@ export function updateHighScore(score: number): boolean {
   localStorage.setItem(HIGH_SCORE_KEY, String(score));
   return true;
 }
+
+export function clearHighScore(): void {
+  localStorage.removeItem(HIGH_SCORE_KEY);
+}

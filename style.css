@@ -62,6 +62,11 @@ body::before {
     color: #7cf7ff;
     text-shadow: 0 0 12px rgba(124, 247, 255, 0.6);
 }
+.title-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 .tagline {
     margin: 0;
     color: #8fa3ad;
@@ -72,6 +77,19 @@ body::before {
     font-size: 0.7rem;
     letter-spacing: 0.08em;
     color: #3d5560;
+}
+/* 接続設定〜START操作を1つの端末パネルとしてまとめ、他の要素の中でも
+   主操作であることが一目で分かるようにする。 */
+.title-console {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(320px, 100%);
+    padding: 20px;
+    background: rgba(124, 247, 255, 0.05);
+    border: 1px solid rgba(124, 247, 255, 0.2);
+    border-radius: 4px;
 }
 .instance-label {
     display: flex;
@@ -111,6 +129,7 @@ body::before {
 }
 
 .controls-help {
+    width: min(320px, 100%);
     background: rgba(124, 247, 255, 0.05);
     border: 1px solid rgba(124, 247, 255, 0.2);
     border-radius: 4px;
@@ -162,6 +181,11 @@ body::before {
     text-shadow: 0 0 6px rgba(255, 110, 110, 0.5);
 }
 
+.title-footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
 .link-button {
     background: none;
     border: none;
@@ -171,6 +195,11 @@ body::before {
     font-size: 0.8rem;
     cursor: pointer;
     padding: 0;
+}
+/* データ削除は取り返しがつかない操作なので、他のリンクボタンと並んでいても
+   色だけで危険度が分かるようにする。 */
+.link-button-danger {
+    color: #ff6e6e;
 }
 
 /* 絵文字コレクション(遭遇したカスタム絵文字の図鑑)。localStorageに保存された
@@ -356,6 +385,77 @@ body::before {
     font: inherit;
 }
 #collectionDetailCloseButton:active {
+    transform: translateY(1px);
+}
+
+/* データ削除など、取り消せない操作の前に挟む確認ダイアログ。
+   collection-detail-overlayよりさらに手前に重ねる。 */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 6, 10, 0.92);
+}
+.confirm-overlay[hidden] {
+    display: none;
+}
+.confirm-panel {
+    width: min(300px, 88vw);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: #0c1117;
+    border: 1px solid rgba(255, 110, 110, 0.4);
+    border-radius: 8px;
+    padding: 24px 20px;
+    text-align: center;
+}
+.confirm-message {
+    font-size: 0.85rem;
+    color: #d8f7ff;
+    line-height: 1.6;
+    text-align: left;
+}
+.confirm-message > *:first-child {
+    margin-top: 0;
+}
+.confirm-message > *:last-child {
+    margin-bottom: 0;
+}
+.confirm-message strong {
+    color: #ff6e6e;
+}
+.confirm-message ul {
+    margin: 8px 0;
+    padding-left: 1.4em;
+}
+.confirm-buttons {
+    display: flex;
+    gap: 10px;
+}
+.confirm-buttons button {
+    flex: 1;
+    font: inherit;
+    padding: 10px 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#clearDataCancelButton {
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid #2a3a42;
+}
+#clearDataConfirmButton {
+    background: rgba(255, 110, 110, 0.12);
+    color: #ff6e6e;
+    border: 1px solid rgba(255, 110, 110, 0.6);
+    text-shadow: 0 0 8px rgba(255, 110, 110, 0.5);
+}
+#clearDataCancelButton:active,
+#clearDataConfirmButton:active {
     transform: translateY(1px);
 }
 

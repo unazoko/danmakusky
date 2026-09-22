@@ -8,15 +8,21 @@
   </head>
   <body>
     <div id="titleScreen" class="screen">
-      <h1>DANMAKUSKY</h1>
-      <p class="tagline">連合TL カスタム絵文字弾幕ゲーム</p>
-      <p class="fake-readout">SYS-CORE v0.90 // AUTH: NONE // RISK: HIGH</p>
-      <label class="instance-label">
-        接続先インスタンス
-        <input id="instanceInput" type="text" value="misskey.io" autocomplete="off" spellcheck="false" />
-      </label>
-      <button id="startButton" type="button">START</button>
-      <p id="titleError" class="error-text" hidden></p>
+      <div class="title-header">
+        <h1>DANMAKUSKY</h1>
+        <p class="tagline">連合TL カスタム絵文字弾幕ゲーム</p>
+        <p class="fake-readout">SYS-CORE v0.90 // AUTH: NONE // RISK: HIGH</p>
+      </div>
+
+      <div class="title-console">
+        <label class="instance-label">
+          接続先インスタンス
+          <input id="instanceInput" type="text" value="misskey.io" autocomplete="off" spellcheck="false" />
+        </label>
+        <button id="startButton" type="button">START</button>
+        <p id="titleError" class="error-text" hidden></p>
+      </div>
+
       <div class="controls-help">
         <p class="controls-help-title">PC操作</p>
         <ul>
@@ -32,7 +38,11 @@
         </ul>
         <p class="controls-help-warning">※ NOTICE: ボタンを強く押しても威力は上がりません</p>
       </div>
-      <button id="collectionButton" type="button" class="link-button">カスタム絵文字コレクションを見る</button>
+
+      <div class="title-footer">
+        <button id="collectionButton" type="button" class="link-button">カスタム絵文字コレクションを見る</button>
+        <button id="clearDataButton" type="button" class="link-button link-button-danger">データを削除</button>
+      </div>
     </div>
 
     <div id="collectionOverlay" class="collection-overlay" hidden>
@@ -52,6 +62,16 @@
           <div><dt>被撃墜回数</dt><dd id="collectionDetailDefeat">0</dd></div>
         </dl>
         <button id="collectionDetailCloseButton" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <div id="clearDataOverlay" class="confirm-overlay" hidden>
+      <div class="confirm-panel">
+        <div id="clearDataMessage" class="confirm-message"></div>
+        <div class="confirm-buttons">
+          <button id="clearDataCancelButton" type="button">キャンセル</button>
+          <button id="clearDataConfirmButton" type="button">削除する</button>
+        </div>
       </div>
     </div>
 
