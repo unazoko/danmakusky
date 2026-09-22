@@ -9,6 +9,9 @@ export interface CollectionEntry {
   shortcode: string;
   url: string;
   count: number;
+  // この絵文字の弾に撃墜された回数。古いデータには存在しないことがあるため、
+  // 読み出し側はundefinedを0として扱うこと。
+  defeatCount?: number;
 }
 
 // ページ読み込み中は一度だけlocalStorageから読み、以後はこのメモリ上の
@@ -34,7 +37,21 @@ export function recordEmojiEncounter(shortcode: string, url: string): void {
     existing.count += 1;
   } else {
     if (Object.keys(data).length >= MAX_ENTRIES) return;
-    data[url] = { shortcode, url, count: 1 };
+    data[url] = { shortcode, url, count: 1, defeatCount: 0 };
+  }
+  localStorage.setItem(COLLECTION_KEY, JSON.stringify(data));
+}
+
+// この絵文字の弾に撃墜された回数を1増やす。撃墜時の絵文字は必ず一度は
+// recordEmojiEncounterで登録済みのはずだが、念のため未登録でも作成する。
+export function recordEmojiDefeat(shortcode: string, url: string): void {
+  const data = ensureLoaded();
+  const existing = data[url];
+  if (existing) {
+    existing.defeatCount = (existing.defeatCount ?? 0) + 1;
+  } else {
+    if (Object.keys(data).length >= MAX_ENTRIES) return;
+    data[url] = { shortcode, url, count: 0, defeatCount: 1 };
   }
   localStorage.setItem(COLLECTION_KEY, JSON.stringify(data));
 }

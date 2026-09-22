@@ -25,6 +25,28 @@ export function isImageReady(img: HTMLImageElement): boolean {
   return img.complete && img.naturalWidth > 0;
 }
 
+// カスタム絵文字は正方形とは限らない(横長・縦長のものも珍しくない)ため、
+// 弾・コア・自機のいずれも無理やり正方形に引き伸ばさない。縦幅(高さ)は
+// boxSizeに揃えて統一し、横幅は元の縦横比なりに(boxSizeを超えても)
+// そのまま伸ばす(横長のものほど見た目の広さにも差が出た方が弾幕らしく、
+// ゲーム性が上がるため)。中心は(x,y)に合わせる。
+// なお当たり判定(hitRadius)は見た目の幅とは完全に独立した固定値なので、
+// 見た目が横に伸びても判定サイズ自体は変わらない。
+function scaledWidthForHeight(img: HTMLImageElement, height: number): number {
+  return (img.naturalWidth / img.naturalHeight) * height;
+}
+
+function drawImageMatchHeight(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  boxSize: number,
+): void {
+  const w = scaledWidthForHeight(img, boxSize);
+  ctx.drawImage(img, x - w / 2, y - boxSize / 2, w, boxSize);
+}
+
 // 自機絵文字がまだ決まっていない(投稿が来ずタイムアウトした等)ときの
 // フォールバック用に、既に読み込み済みの絵文字からランダムに1つ返す。
 // 1件もなければnull(その場合は追加の投稿を待つしかない)。
@@ -52,13 +74,15 @@ export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bul
     } else {
       // 黒っぽい絵文字が背景(黒)に溶け込んで見えなくなるのを防ぐため、
       // 弾の背後に薄い白いハローを敷く(明るい絵文字にはほぼ影響しない)。
+      // 横長の絵文字は横幅もそれに合わせて楕円にする。
+      const haloWidth = scaledWidthForHeight(b.img, b.size);
       ctx.beginPath();
-      ctx.arc(b.x, b.y, b.size * 0.5, 0, Math.PI * 2);
+      ctx.ellipse(b.x, b.y, haloWidth * 0.5, b.size * 0.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
       ctx.fill();
     }
 
-    ctx.drawImage(b.img, b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
+    drawImageMatchHeight(ctx, b.img, b.x, b.y, b.size);
   }
 }
 
@@ -69,18 +93,14 @@ export function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, now: n
   const blinkVisible = !isInvincible || Math.floor(now / 100) % 2 === 0;
 
   if (blinkVisible && player.emojiImg && isImageReady(player.emojiImg)) {
-    // 弾と同様、黒っぽい絵文字が背景に溶け込まないよう薄い白いハローを敷く。
+    // 弾・コアと同様、黒っぽい絵文字が背景に溶け込まないよう薄い白いハローを
+    // 敷く(横長の絵文字は横幅もそれに合わせて楕円にする)。
+    const haloWidth = scaledWidthForHeight(player.emojiImg, player.spriteSize);
     ctx.beginPath();
-    ctx.arc(player.x, player.y, player.spriteSize * 0.45, 0, Math.PI * 2);
+    ctx.ellipse(player.x, player.y, haloWidth * 0.45, player.spriteSize * 0.45, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
     ctx.fill();
-    ctx.drawImage(
-      player.emojiImg,
-      player.x - player.spriteSize / 2,
-      player.y - player.spriteSize / 2,
-      player.spriteSize,
-      player.spriteSize,
-    );
+    drawImageMatchHeight(ctx, player.emojiImg, player.x, player.y, player.spriteSize);
   }
 
   if (player.focused) {
@@ -119,18 +139,13 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
 
   if (isImageReady(core.img)) {
     // 弾・自機と同様、黒っぽい絵文字が縁取りの内側で見えなくならないよう
-    // 薄い白いハローを敷く。
+    // 薄い白いハローを敷く。横長の絵文字は横幅もそれに合わせて楕円にする。
+    const haloWidth = scaledWidthForHeight(core.img, core.spriteSize);
     ctx.beginPath();
-    ctx.arc(core.x, core.y, core.spriteSize * 0.45, 0, Math.PI * 2);
+    ctx.ellipse(core.x, core.y, haloWidth * 0.45, core.spriteSize * 0.45, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
     ctx.fill();
-    ctx.drawImage(
-      core.img,
-      core.x - core.spriteSize / 2,
-      core.y - core.spriteSize / 2,
-      core.spriteSize,
-      core.spriteSize,
-    );
+    drawImageMatchHeight(ctx, core.img, core.x, core.y, core.spriteSize);
   }
 
   const barWidth = core.spriteSize * 1.4;

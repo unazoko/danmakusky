@@ -15,7 +15,7 @@ import { buildShareText, openShareForm } from "./share.js";
 import { getHighScore, updateHighScore } from "./storage.js";
 import { ReactionTracker } from "./reactionTracker.js";
 import { NoteRateTracker } from "./noteRate.js";
-import { recordEmojiEncounter, getCollection } from "./emojiCollection.js";
+import { recordEmojiEncounter, recordEmojiDefeat, getCollection, type CollectionEntry } from "./emojiCollection.js";
 import { Starfield } from "./starfield.js";
 import {
   cutInTierLabel,
@@ -88,6 +88,12 @@ const collectionButton = $<HTMLButtonElement>("#collectionButton");
 const collectionOverlay = $<HTMLDivElement>("#collectionOverlay");
 const collectionList = $<HTMLDivElement>("#collectionList");
 const collectionCloseButton = $<HTMLButtonElement>("#collectionCloseButton");
+const collectionDetailOverlay = $<HTMLDivElement>("#collectionDetailOverlay");
+const collectionDetailImg = $<HTMLImageElement>("#collectionDetailImg");
+const collectionDetailShortcode = $<HTMLParagraphElement>("#collectionDetailShortcode");
+const collectionDetailCount = $<HTMLElement>("#collectionDetailCount");
+const collectionDetailDefeat = $<HTMLElement>("#collectionDetailDefeat");
+const collectionDetailCloseButton = $<HTMLButtonElement>("#collectionDetailCloseButton");
 
 function normalizeHost(raw: string): string | null {
   const trimmed = raw
@@ -278,6 +284,30 @@ function resizeCanvas(): void {
 }
 window.addEventListener("resize", resizeCanvas);
 
+// 絵文字ショートコードは空白を含まないため、長いと折り返せずに枠から
+// はみ出す。まずフォントサイズを少しずつ縮めて収めることを試み、
+// 最小サイズでも収まらない極端に長いケースはCSS側のoverflow-wrapに任せる。
+const CAUSE_SHORTCODE_MAX_FONT_REM = 1.6;
+const CAUSE_SHORTCODE_MIN_FONT_REM = 0.85;
+function fitCauseShortcodeFontSize(el: HTMLElement): void {
+  const maxWidth = el.parentElement?.clientWidth ?? 0;
+  if (maxWidth === 0) return;
+
+  // CSS側のoverflow-wrapによる折り返しが先に効いてしまうと、常に
+  // (折り返し後の)1行分の幅までしか測れず、縮小が一切発動しなくなる。
+  // 測定・縮小の間だけ折り返しを止め、1行としての本来の幅で判定する。
+  el.style.whiteSpace = "nowrap";
+  let size = CAUSE_SHORTCODE_MAX_FONT_REM;
+  for (;;) {
+    el.style.fontSize = `${size}rem`;
+    if (el.scrollWidth <= maxWidth || size <= CAUSE_SHORTCODE_MIN_FONT_REM) break;
+    size = Math.round((size - 0.1) * 10) / 10;
+  }
+  // 最小サイズでも収まらない極端に長いケースは、折り返しを戻して
+  // overflow-wrapに任せる(はみ出すよりは折り返した方がまし)。
+  el.style.whiteSpace = "";
+}
+
 // 実際の死因は、GameOverInfo.causeShortcode(=当たった弾の絵文字ショートコード、
 // そのまま)をそのまま見出しにする。ゲーム側だけが異常に真剣なトーンを崩さない
 // のが狙いなので、ふざけた文言は入れない。
@@ -295,11 +325,14 @@ function showGameOver(info: GameOverInfo): void {
     img.src = info.causeImg.src;
     img.className = "cause-emoji-img";
     gameOverCause.append(img);
+    // 絵文字コレクション側にも「これに撃墜された回数」として記録する。
+    recordEmojiDefeat(info.causeShortcode ?? "不明", info.causeImg.src);
   }
   const shortcodeLabel = document.createElement("span");
   shortcodeLabel.className = "cause-shortcode";
   shortcodeLabel.textContent = info.causeShortcode ?? "??? (不明)";
   gameOverCause.append(shortcodeLabel);
+  fitCauseShortcodeFontSize(shortcodeLabel);
 
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
@@ -674,7 +707,8 @@ function renderCollection(): void {
     return;
   }
   for (const entry of entries) {
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.className = "collection-entry";
     const img = document.createElement("img");
     img.src = entry.url;
@@ -686,8 +720,18 @@ function renderCollection(): void {
     shortcode.className = "shortcode";
     shortcode.textContent = entry.shortcode;
     el.append(img, count, shortcode);
+    el.onclick = () => showCollectionDetail(entry);
     collectionList.append(el);
   }
+}
+
+function showCollectionDetail(entry: CollectionEntry): void {
+  collectionDetailImg.src = entry.url;
+  collectionDetailImg.alt = entry.shortcode;
+  collectionDetailShortcode.textContent = entry.shortcode;
+  collectionDetailCount.textContent = entry.count.toLocaleString();
+  collectionDetailDefeat.textContent = (entry.defeatCount ?? 0).toLocaleString();
+  collectionDetailOverlay.hidden = false;
 }
 
 collectionButton.onclick = () => {
@@ -696,6 +740,9 @@ collectionButton.onclick = () => {
 };
 collectionCloseButton.onclick = () => {
   collectionOverlay.hidden = true;
+};
+collectionDetailCloseButton.onclick = () => {
+  collectionDetailOverlay.hidden = true;
 };
 
 // 投稿は必ずこのボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。

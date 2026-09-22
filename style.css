@@ -118,10 +118,13 @@ body::before {
     text-align: left;
 }
 .controls-help-title {
-    margin: 0 0 6px;
+    margin: 10px 0 6px;
     font-size: 0.7rem;
     letter-spacing: 0.1em;
     color: #7cf7ff;
+}
+.controls-help-title:first-child {
+    margin-top: 0;
 }
 .controls-help ul {
     margin: 0;
@@ -149,10 +152,14 @@ body::before {
     color: #7cf7ff;
     font-size: 0.7rem;
 }
-.controls-help-note {
-    margin: 8px 0 0;
-    font-size: 0.7rem;
-    color: #8fa3ad;
+/* 内容は無意味だが、見た目だけは重要な警告のように装う
+   (このゲーム全体の「はっちゃけ」トーンに合わせた小ネタ)。 */
+.controls-help-warning {
+    margin: 4px 0 0;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    color: #ff6e6e;
+    text-shadow: 0 0 6px rgba(255, 110, 110, 0.5);
 }
 
 .link-button {
@@ -203,7 +210,26 @@ body::before {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 10px;
-    padding: 4px;
+    /* 右側だけ広めに取り、スクロールバーが一番右の列の絵文字に
+       くっつかないようにする。 */
+    padding: 4px 14px 4px 4px;
+    /* Firefox向け。Chromium系は下の::-webkit-scrollbar系で見た目を揃える。 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 247, 255, 0.5) rgba(5, 6, 10, 0.4);
+}
+.collection-list::-webkit-scrollbar {
+    width: 8px;
+}
+.collection-list::-webkit-scrollbar-track {
+    background: rgba(5, 6, 10, 0.4);
+    border-radius: 4px;
+}
+.collection-list::-webkit-scrollbar-thumb {
+    background: rgba(124, 247, 255, 0.4);
+    border-radius: 4px;
+}
+.collection-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 247, 255, 0.65);
 }
 .collection-entry {
     display: flex;
@@ -214,10 +240,22 @@ body::before {
     background: rgba(124, 247, 255, 0.05);
     border: 1px solid rgba(124, 247, 255, 0.15);
     border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+    /* グリッドアイテムの初期値(min-width: auto)のままだと、画像が横長の
+       カードだけがトラック全体を押し広げてレイアウトが崩れてしまう。 */
+    min-width: 0;
 }
+.collection-entry:active {
+    background: rgba(124, 247, 255, 0.15);
+}
+/* 縦幅(高さ)は揃え、横幅は元の縦横比なりに伸びてよい(canvas側の弾の
+   描画方針と統一)。ただしカードからはみ出す手前でmax-widthにより頭打ちにし、
+   レイアウトが崩れないようにする。 */
 .collection-entry img {
-    width: 36px;
     height: 36px;
+    width: auto;
+    max-width: 100%;
 }
 .collection-entry .count {
     font-size: 0.75rem;
@@ -230,6 +268,10 @@ body::before {
     word-break: break-all;
 }
 .collection-empty {
+    /* .collection-listはgridなので、指定しないとこの1メッセージだけが
+       auto-fillの1カラム分(狭い)に押し込まれて不自然に折り返される。
+       全カラムぶん横に広げて中央揃えにする。 */
+    grid-column: 1 / -1;
     text-align: center;
     color: #8fa3ad;
     font-size: 0.85rem;
@@ -246,6 +288,74 @@ body::before {
     font: inherit;
 }
 #collectionCloseButton:active {
+    transform: translateY(1px);
+}
+
+/* 図鑑の1件をタップしたときに出る詳細(遭遇回数・被撃墜回数)。
+   collection-overlayよりさらに手前に重ねる。 */
+.collection-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 6, 10, 0.92);
+}
+.collection-detail-overlay[hidden] {
+    display: none;
+}
+.collection-detail-panel {
+    width: min(280px, 88vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background: #0c1117;
+    border: 1px solid rgba(124, 247, 255, 0.3);
+    border-radius: 8px;
+    padding: 24px 20px;
+}
+/* 縦幅は揃え、横幅は元の縦横比なりに伸びてよいが、パネルからはみ出す
+   手前でmax-widthにより頭打ちにする(.collection-entry imgと同じ方針)。 */
+.collection-detail-img {
+    height: 64px;
+    width: auto;
+    max-width: 100%;
+}
+.collection-detail-shortcode {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #7cf7ff;
+    text-shadow: 0 0 8px rgba(124, 247, 255, 0.6);
+    word-break: break-all;
+    text-align: center;
+}
+.collection-detail-stats {
+    display: flex;
+    gap: 28px;
+    margin: 0;
+}
+.collection-detail-stats dt {
+    font-size: 0.7rem;
+    color: #8fa3ad;
+}
+.collection-detail-stats dd {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #d8f7ff;
+}
+#collectionDetailCloseButton {
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid #2a3a42;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+#collectionDetailCloseButton:active {
     transform: translateY(1px);
 }
 
@@ -476,6 +586,7 @@ body::before {
 .cut-in-img {
     width: 88px;
     height: 88px;
+    object-fit: contain;
     flex-shrink: 0;
     filter: drop-shadow(0 0 12px var(--cut-in-color, #7cf7ff));
 }
@@ -625,9 +736,66 @@ body::before {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 24px;
+}
+/* 全体をひとつの端末パネルとして額装する。ただの縦積みに見えないよう、
+   枠・発光・角のブラケット装飾を付ける。 */
+.result-panel {
+    position: relative;
+    width: min(360px, 92vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 14px;
     text-align: center;
-    padding: 24px;
+    padding: 30px 24px 24px;
+    background: rgba(12, 17, 23, 0.75);
+    border: 1px solid rgba(255, 110, 110, 0.3);
+    border-radius: 10px;
+    box-shadow: 0 0 40px rgba(255, 110, 110, 0.12);
+    /* 縦に長くなってスクロールが必要なときも、素のOS標準スクロールバーが
+       浮いて見えないよう見た目を合わせる(collection-listと同じ方針)。 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 110, 110, 0.5) rgba(5, 6, 10, 0.4);
+}
+.result-panel::-webkit-scrollbar {
+    width: 8px;
+}
+.result-panel::-webkit-scrollbar-track {
+    background: rgba(5, 6, 10, 0.4);
+    border-radius: 4px;
+}
+.result-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 110, 110, 0.4);
+    border-radius: 4px;
+}
+.result-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 110, 110, 0.65);
+}
+/* SF端末風の角ブラケット(左上・右下のみに入れて「読み取り機」感を出す)。 */
+.result-panel::before,
+.result-panel::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 110, 110, 0.6);
+    pointer-events: none;
+}
+.result-panel::before {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+}
+.result-panel::after {
+    bottom: -1px;
+    right: -1px;
+    border-left: none;
+    border-top: none;
 }
 #gameOverScreen h1 {
     margin: 0;
@@ -644,6 +812,19 @@ body::before {
     white-space: pre-line;
     font-size: 0.85rem;
 }
+/* 死因一式を「検死レポート」風の枠で囲み、ページ内の1コーナーとして
+   まとまって見えるようにする。 */
+.cause-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 12px;
+    background: rgba(255, 110, 110, 0.05);
+    border: 1px solid rgba(255, 110, 110, 0.25);
+    border-radius: 6px;
+}
 .cause-label {
     margin: 0;
     font-size: 0.75rem;
@@ -656,10 +837,14 @@ body::before {
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    /* 幅を明示しないと、長いショートコードが入ったときにこの要素自体が
+       内容に合わせて広がってしまい、はみ出しを検知・抑制できなくなる。 */
+    width: 100%;
 }
 .cause-emoji-img {
     width: 64px;
     height: 64px;
+    object-fit: contain;
 }
 /* 死因のショートコードをそのまま煽り文句として大きく出す
    (「CAUSE OF DEATH: おっぱい」のノリ)。 */
@@ -668,6 +853,10 @@ body::before {
     font-weight: bold;
     color: #ff6e6e;
     text-shadow: 0 0 10px rgba(255, 110, 110, 0.6);
+    max-width: 100%;
+    /* 長いショートコードでもフォントサイズ縮小(main.ts参照)で収まるのが
+       基本だが、それでも収まらない極端なケース向けの最終手段。 */
+    overflow-wrap: break-word;
 }
 .system-status-line {
     margin: 0;
@@ -676,18 +865,32 @@ body::before {
     color: #8fa3ad;
     font-style: italic;
 }
+/* スコア類は個別に浮かせず、区切り線入りの1本のステータスバーにする。 */
 .result-stats {
     display: flex;
-    gap: 32px;
+    gap: 0;
     margin: 0;
+    width: 100%;
+    border-top: 1px solid rgba(124, 247, 255, 0.2);
+    border-bottom: 1px solid rgba(124, 247, 255, 0.2);
+    padding: 10px 0;
+}
+.result-stats > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.result-stats > div + div {
+    border-left: 1px solid rgba(124, 247, 255, 0.15);
 }
 .result-stats dt {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #8fa3ad;
 }
 .result-stats dd {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     color: #7cf7ff;
 }
 .high-score-line {

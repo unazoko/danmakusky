@@ -25,16 +25,33 @@
           <li><span class="key">Z / Space</span>弾を発射</li>
           <li><span class="key">Esc</span>一時停止</li>
         </ul>
-        <p class="controls-help-note">スマホ: ドラッグで移動 / 画面のFIREボタンで発射</p>
+        <p class="controls-help-title">スマホ操作</p>
+        <ul>
+          <li><span class="key">ドラッグ</span>移動</li>
+          <li><span class="key">FIREボタン</span>弾を発射</li>
+        </ul>
+        <p class="controls-help-warning">※ NOTICE: ボタンを強く押しても威力は上がりません</p>
       </div>
-      <button id="collectionButton" type="button" class="link-button">絵文字コレクションを見る</button>
+      <button id="collectionButton" type="button" class="link-button">カスタム絵文字コレクションを見る</button>
     </div>
 
     <div id="collectionOverlay" class="collection-overlay" hidden>
       <div class="collection-panel">
-        <h2>EMOJI COLLECTION</h2>
+        <h2>CUSTOM EMOJI COLLECTION</h2>
         <div id="collectionList" class="collection-list"></div>
         <button id="collectionCloseButton" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <div id="collectionDetailOverlay" class="collection-detail-overlay" hidden>
+      <div class="collection-detail-panel">
+        <img id="collectionDetailImg" class="collection-detail-img" alt="" />
+        <p id="collectionDetailShortcode" class="collection-detail-shortcode"></p>
+        <dl class="collection-detail-stats">
+          <div><dt>遭遇回数</dt><dd id="collectionDetailCount">0</dd></div>
+          <div><dt>被撃墜回数</dt><dd id="collectionDetailDefeat">0</dd></div>
+        </dl>
+        <button id="collectionDetailCloseButton" type="button">閉じる</button>
       </div>
     </div>
 
@@ -86,21 +103,28 @@
     </div>
 
     <div id="gameOverScreen" class="screen" hidden>
-      <h1>CRITICAL FAILURE</h1>
-      <p id="gameOverIntro" class="subtagline"></p>
-      <p class="cause-label">CAUSE OF DEATH</p>
-      <p id="gameOverCause" class="cause-line"></p>
-      <p id="gameOverStatus" class="system-status-line"></p>
-      <dl class="result-stats">
-        <div><dt>SCORE</dt><dd id="resultScore">0</dd></div>
-        <div><dt>TIME</dt><dd id="resultTime">00:00.0</dd></div>
-        <div><dt>GRAZE</dt><dd id="resultGraze">0</dd></div>
-      </dl>
-      <p id="highScoreLine" class="high-score-line"></p>
-      <div class="result-buttons">
-        <button id="backToTitleButton" type="button">スタート画面に戻る</button>
-        <button id="retryButton" type="button">もう一度遊ぶ</button>
-        <button id="shareButton" type="button">結果を投稿する</button>
+      <div class="result-panel">
+        <h1>CRITICAL FAILURE</h1>
+        <p id="gameOverIntro" class="subtagline"></p>
+
+        <div class="cause-panel">
+          <p class="cause-label">CAUSE OF DEATH</p>
+          <p id="gameOverCause" class="cause-line"></p>
+          <p id="gameOverStatus" class="system-status-line"></p>
+        </div>
+
+        <dl class="result-stats">
+          <div><dt>SCORE</dt><dd id="resultScore">0</dd></div>
+          <div><dt>TIME</dt><dd id="resultTime">00:00.0</dd></div>
+          <div><dt>GRAZE</dt><dd id="resultGraze">0</dd></div>
+        </dl>
+        <p id="highScoreLine" class="high-score-line"></p>
+
+        <div class="result-buttons">
+          <button id="backToTitleButton" type="button">スタート画面に戻る</button>
+          <button id="retryButton" type="button">もう一度遊ぶ</button>
+          <button id="shareButton" type="button">結果を投稿する</button>
+        </div>
       </div>
     </div>
 

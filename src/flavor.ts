@@ -106,6 +106,7 @@ const SYSTEM_STATUS_LINES = [
   "気まずい",
   "台無し",
   "N/A(見なかったことにしてください)",
+  "どうしようもない",
 ];
 export function randomSystemStatus(): string {
   return pick(SYSTEM_STATUS_LINES);
