@@ -25,7 +25,7 @@ const CULL_MARGIN_PX = 60;
 
 const PLAYER_BULLET_SPEED = 420;
 const PLAYER_BULLET_RADIUS = 4;
-const PLAYER_BULLET_DAMAGE = 0.5;
+const PLAYER_BULLET_DAMAGE = 1;
 // 自機弾の連射間隔(東方のZキー連射相当)。
 const PLAYER_FIRE_INTERVAL_MS = 120;
 // 3連ガトリング
@@ -65,6 +65,7 @@ export interface GameEventListeners {
   onCoreSpawned?: (core: Core) => void;
   onLifeUp?: () => void;
   onGrazeChange?: (count: number) => void;
+  onPlayerShoot?: () => void;
   // ボス撃破・満タン時の残機回復弾など、まとまった加点が入った瞬間に通知する
   // (GRAZEの細かい加点はここには含めない、main.ts側の演出用)。
   onScoreBonus?: (amount: number) => void;
@@ -192,6 +193,7 @@ export class GameState {
           vy: -PLAYER_BULLET_SPEED,
         });
       }
+      this.listeners.onPlayerShoot?.();
     }
 
     for (const b of this.playerBullets) b.y += b.vy * dtSec;

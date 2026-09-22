@@ -737,7 +737,7 @@ body::before {
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
-    width: 32px;
+    width: 44px;
     height: 32px;
     border-radius: 4px;
     border: 1px solid rgba(124, 247, 255, 0.5);

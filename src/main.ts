@@ -24,6 +24,17 @@ import {
   type CollectionEntry,
 } from "./emojiCollection.js";
 import { Starfield } from "./starfield.js";
+import { playRandomBgm, stopBgm, setBgmPaused } from "./bgm.js";
+import {
+  playStartScreenSfx,
+  playResultSfx,
+  playPlayerDownSfx,
+  playWeakOrMidBossDownSfx,
+  playStrongBossDownSfx,
+  playGrazeSfx,
+  playShotSfx,
+  playLifeUpSfx,
+} from "./sfx.js";
 import {
   cutInTierLabel,
   fakeDensityPercent,
@@ -226,7 +237,7 @@ function flashScoreBonus(amount: number): void {
 // コア出現時のカットイン演出(東方Project的なボス登場演出)。雑魚(weak)は
 // ひっきりなしに出現するので対象外にし、中ボス・強ボスの出現時だけ出す。
 // 同時に複数体出現した場合に演出が重ならないよう、簡単なキューで直列化する。
-const CUT_IN_SHOW_MS = 1300;
+const CUT_IN_SHOW_MS = 1400;
 const CUT_IN_TRANSITION_MS = 400;
 const cutInQueue: Core[] = [];
 let cutInPlaying = false;
@@ -330,8 +341,8 @@ function fitCauseShortcodeFontSize(el: HTMLElement): void {
 // のが狙いなので、ふざけた文言は入れない。
 function showGameOver(info: GameOverInfo): void {
   lastGameOverInfo = info;
+  stopBgm();
   gameScreen.hidden = true;
-  gameOverScreen.hidden = false;
 
   gameOverIntro.textContent = randomDeathIntro();
   gameOverStatus.textContent = `SYSTEM STATUS: ${randomSystemStatus()}`;
@@ -349,7 +360,6 @@ function showGameOver(info: GameOverInfo): void {
   shortcodeLabel.className = "cause-shortcode";
   shortcodeLabel.textContent = info.causeShortcode ?? "??? (不明)";
   gameOverCause.append(shortcodeLabel);
-  fitCauseShortcodeFontSize(shortcodeLabel);
 
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
@@ -359,6 +369,14 @@ function showGameOver(info: GameOverInfo): void {
   highScoreLine.textContent = isNewHighScore
     ? "★ NEW HIGH SCORE ★"
     : `HIGH SCORE ${getHighScore().toLocaleString()}`;
+
+  // 自機撃墜.mp3が鳴り終わってから結果画面を表示する(fitCauseShortcodeFontSizeは
+  // 実際にレイアウトされていないと幅を測れないため、表示後に呼ぶ)。
+  playPlayerDownSfx().then(() => {
+    gameOverScreen.hidden = false;
+    fitCauseShortcodeFontSize(shortcodeLabel);
+    playResultSfx();
+  });
 }
 
 // presetShipImgを渡した場合(ゲーム初回開始時、進捗演出中に選定・読込済みの
@@ -371,6 +389,7 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
   gameOverScreen.hidden = true;
   gameScreen.hidden = false;
   resizeCanvas();
+  playRandomBgm();
 
   playerEmojiChosen = presetShipImg !== null;
   game = new GameState(
@@ -381,13 +400,22 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
         hudScore.textContent = `SCORE ${score.toLocaleString()}`;
       },
       onGameOver: showGameOver,
-      onCoreDefeated: () => flashCoreMessage(randomCoreDefeatLine()),
+      onCoreDefeated: (core) => {
+        flashCoreMessage(randomCoreDefeatLine());
+        if (core.tier === "strong") playStrongBossDownSfx();
+        else playWeakOrMidBossDownSfx();
+      },
       onCoreSpawned: (core) => enqueueCutIn(core),
-      onLifeUp: () => flashCoreMessage(randomLifeUpLine()),
+      onLifeUp: () => {
+        flashCoreMessage(randomLifeUpLine());
+        playLifeUpSfx();
+      },
       onGrazeChange: (count) => {
         hudGraze.textContent = `GRAZE ${count.toLocaleString()}`;
+        playGrazeSfx();
       },
       onScoreBonus: (amount) => flashScoreBonus(amount),
+      onPlayerShoot: () => playShotSfx(),
     },
     now,
     presetShipImg,
@@ -587,6 +615,7 @@ function revealGame(shipImg: HTMLImageElement | null): void {
 // 終了させ、次にSTARTを押したときにまっさらな状態から始められるようにする。
 function backToTitle(): void {
   gameSessionActive = false;
+  stopBgm();
   paused = false;
   pauseAccumulatedMs = 0;
   pauseOverlay.hidden = true;
@@ -604,6 +633,7 @@ function backToTitle(): void {
   gameScreen.hidden = true;
   titleScreen.hidden = false;
   titleError.hidden = true;
+  playStartScreenSfx();
 }
 
 // 一時停止/再開。tick側はgame.update()を呼ばないことで弾の動き等を凍結するが、
@@ -616,6 +646,7 @@ function pauseGame(): void {
   paused = true;
   pausedAt = performance.now();
   pauseOverlay.hidden = false;
+  setBgmPaused(true);
 }
 function resumeGame(): void {
   if (!paused) return;
@@ -623,6 +654,7 @@ function resumeGame(): void {
   paused = false;
   pauseOverlay.hidden = true;
   lastFrameAt = performance.now();
+  setBgmPaused(false);
 }
 
 // STARTボタン押下時の起動演出。最初のSTART_PROGRESS_MIN_MSは演出として
@@ -713,6 +745,11 @@ window.addEventListener("keydown", (ev) => {
   if (paused) resumeGame();
   else pauseGame();
 });
+
+// 起動直後は最初からタイトル画面が表示されているので、ここで1回鳴らす
+// (ブラウザの自動再生ポリシー上、ユーザー操作前だと再生がブロックされる
+// ことがあるが、その場合は黙って鳴らないだけで致命的ではない)。
+playStartScreenSfx();
 
 function renderCollection(): void {
   const entries = getCollection();

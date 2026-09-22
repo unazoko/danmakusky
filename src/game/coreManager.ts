@@ -30,10 +30,9 @@ interface TierConfig {
 // 中: 水平往復移動・最大2体・弱よりHP高め・螺旋/同心円弾幕
 // 強: 横方向の中心に固定・最大1体・HPが一番高い・攻撃も一番激しい
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
-  weak: { maxHp: 15, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1100, lifeUpDropChance: 0 },
-  // attackIntervalMsは以前750だったが、弾幕密度が高すぎたため1000にナーフ。
-  mid: { maxHp: 35, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 30, attackIntervalMs: 850, lifeUpDropChance: 0.5 },
-  strong: { maxHp: 70, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 4, attackIntervalMs: 500, lifeUpDropChance: 1 },
+  weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.1 },
+  mid: { maxHp: 110, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.5 },
+  strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 8, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
