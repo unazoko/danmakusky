@@ -35,6 +35,9 @@ const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 8, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };
 
+// このショートコードはボスにせず通常弾のみとする(指定による除外)。
+const BOSS_EXCLUDED_SHORTCODES = new Set(["ba_ibuki_facea"]);
+
 const BASE_SPAWN_INTERVAL_MS = 4000;
 const MAX_RECENT_EMOJI_URLS = 20;
 // 弱ボスが画面下へ流れていく速度(通常弾のstraightBullet等と同程度)。
@@ -62,6 +65,7 @@ export class CoreManager {
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
   registerEmoji(shortcode: string, url: string): void {
+    if (BOSS_EXCLUDED_SHORTCODES.has(shortcode)) return;
     this.recentEmojis.push({ shortcode, url });
     if (this.recentEmojis.length > MAX_RECENT_EMOJI_URLS) this.recentEmojis.shift();
   }

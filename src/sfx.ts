@@ -1,8 +1,11 @@
 // 効果音の単発再生。BGMと違って毎回使い捨てのAudioを作る(同じ効果音が
 // 重なって鳴ってもきちんと重ねて再生できるようにするため)。
+import { isMuted } from "./audioSettings.js";
+
 const SFX_VOLUME = 0.6;
 
 function playSfx(filename: string, volume: number = SFX_VOLUME): void {
+  if (isMuted()) return;
   const audio = new Audio(encodeURI(`/sounds/effects/${filename}`));
   audio.volume = volume;
   // ブラウザの自動再生ポリシーで拒否される場合があるが、鳴らなくても
@@ -11,8 +14,10 @@ function playSfx(filename: string, volume: number = SFX_VOLUME): void {
 }
 
 // 再生完了(またはエラー・自動再生拒否)を待てる版。呼び出し側が「鳴り終わって
-// から次の演出に進む」ような順序制御をしたい場合に使う。
+// から次の演出に進む」ような順序制御をしたい場合に使う。ミュート中は鳴らす
+// 音自体が無いので、待たせずすぐ解決する。
 function playSfxAwait(filename: string, volume: number = SFX_VOLUME): Promise<void> {
+  if (isMuted()) return Promise.resolve();
   return new Promise((resolve) => {
     const audio = new Audio(encodeURI(`/sounds/effects/${filename}`));
     audio.volume = volume;

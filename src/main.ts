@@ -25,6 +25,8 @@ import {
 } from "./emojiCollection.js";
 import { Starfield } from "./starfield.js";
 import { playRandomBgm, stopBgm, setBgmPaused } from "./bgm.js";
+import { isMuted, toggleMuted, onMuteChange } from "./audioSettings.js";
+import { createIcon } from "./icons.js";
 import {
   playStartScreenSfx,
   playResultSfx,
@@ -50,8 +52,9 @@ import {
   START_PROGRESS_LABELS,
 } from "./flavor.js";
 import type { Core } from "./game/entities.js";
-// 確認ダイアログの本文はビルド時に埋め込む(?rawで文字列として取り込む)。
+// 確認ダイアログ・ライセンス情報の本文はビルド時に埋め込む(?rawで文字列として取り込む)。
 import clearDataConfirmMd from "./docs/データ削除確認.md?raw";
+import licenseMd from "./docs/ライセンス情報.md?raw";
 
 function $<T extends HTMLElement>(selector: string): T {
   const el = document.querySelector<T>(selector);
@@ -82,6 +85,32 @@ const shareButton = $<HTMLButtonElement>("#shareButton");
 const densityWarning = $<HTMLDivElement>("#densityWarning");
 const bootSequence = $<HTMLDivElement>("#bootSequence");
 const fireButton = $<HTMLButtonElement>("#fireButton");
+const soundToggleButton = $<HTMLButtonElement>("#soundToggleButton");
+const soundToggleIcon = $<HTMLSpanElement>("#soundToggleIcon");
+const collectionButtonIcon = $<HTMLSpanElement>("#collectionButtonIcon");
+collectionButtonIcon.append(createIcon("book-open"));
+
+const startButtonIcon = $<HTMLSpanElement>("#startButtonIcon");
+const pauseButtonIcon = $<HTMLSpanElement>("#pauseButtonIcon");
+const collectionCloseButtonIcon = $<HTMLSpanElement>("#collectionCloseButtonIcon");
+const collectionDetailCloseButtonIcon = $<HTMLSpanElement>("#collectionDetailCloseButtonIcon");
+const licenseCloseButtonIcon = $<HTMLSpanElement>("#licenseCloseButtonIcon");
+const licenseButtonIcon = $<HTMLSpanElement>("#licenseButtonIcon");
+const clearDataButtonIcon = $<HTMLSpanElement>("#clearDataButtonIcon");
+
+startButtonIcon.append(createIcon("play"));
+collectionCloseButtonIcon.append(createIcon("x"));
+collectionDetailCloseButtonIcon.append(createIcon("x"));
+licenseCloseButtonIcon.append(createIcon("x"));
+licenseButtonIcon.append(createIcon("copyright"));
+clearDataButtonIcon.append(createIcon("trash-2"));
+// 一時停止ボタンだけは状態(再生中/一時停止中)に応じてアイコンを切り替える
+// (初期状態は必ず再生中なので、ここでは固定でpauseアイコンを入れておく。
+// 以後の切り替えはpauseGame/resumeGame側のupdatePauseButtonIcon呼び出しで行う)。
+pauseButtonIcon.append(createIcon("pause"));
+function updatePauseButtonIcon(): void {
+  pauseButtonIcon.replaceChildren(createIcon(paused ? "play" : "pause"));
+}
 const coreMessage = $<HTMLDivElement>("#coreMessage");
 const hudRate = $<HTMLSpanElement>("#hudRate");
 const hudFake = $<HTMLSpanElement>("#hudFake");
@@ -119,9 +148,26 @@ const clearDataOverlay = $<HTMLDivElement>("#clearDataOverlay");
 const clearDataMessage = $<HTMLDivElement>("#clearDataMessage");
 const clearDataCancelButton = $<HTMLButtonElement>("#clearDataCancelButton");
 const clearDataConfirmButton = $<HTMLButtonElement>("#clearDataConfirmButton");
+const licenseButton = $<HTMLButtonElement>("#licenseButton");
+const licenseOverlay = $<HTMLDivElement>("#licenseOverlay");
+const licenseContent = $<HTMLDivElement>("#licenseContent");
+const licenseCloseButton = $<HTMLButtonElement>("#licenseCloseButton");
+
+// 確認ダイアログ・ライセンス情報のMarkdownをHTMLへ変換しcontainerへ差し込む。
 // 内容はdanmakusky自身がビルド時に同梱する文書(利用者の入力ではない)なので、
 // サニタイズせずそのままinnerHTMLへ描画してよい。
-clearDataMessage.innerHTML = marked.parse(clearDataConfirmMd, { async: false }) as string;
+function renderMarkdownDocInto(container: HTMLElement, markdown: string): void {
+  container.innerHTML = marked.parse(markdown, { async: false }) as string;
+  // markedはリンクにtarget/relを付けないため、タップでゲームから離脱しない
+  // よう(新しいタブで開くよう)ここで補う。
+  for (const a of container.querySelectorAll("a[href]")) {
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
+  }
+}
+
+renderMarkdownDocInto(clearDataMessage, clearDataConfirmMd);
+renderMarkdownDocInto(licenseContent, licenseMd);
 
 function normalizeHost(raw: string): string | null {
   const trimmed = raw
@@ -487,6 +533,7 @@ function startGame(host: string): void {
   currentStreamStatus = "connecting";
   paused = false;
   pauseAccumulatedMs = 0;
+  updatePauseButtonIcon();
 
   let chosenShipImg: HTMLImageElement | null = null;
   let shipReady = false;
@@ -619,6 +666,7 @@ function backToTitle(): void {
   paused = false;
   pauseAccumulatedMs = 0;
   pauseOverlay.hidden = true;
+  updatePauseButtonIcon();
   stream?.disconnect();
   stream = null;
   reactionTracker = null;
@@ -647,6 +695,7 @@ function pauseGame(): void {
   pausedAt = performance.now();
   pauseOverlay.hidden = false;
   setBgmPaused(true);
+  updatePauseButtonIcon();
 }
 function resumeGame(): void {
   if (!paused) return;
@@ -655,6 +704,7 @@ function resumeGame(): void {
   pauseOverlay.hidden = true;
   lastFrameAt = performance.now();
   setBgmPaused(false);
+  updatePauseButtonIcon();
 }
 
 // STARTボタン押下時の起動演出。最初のSTART_PROGRESS_MIN_MSは演出として
@@ -717,6 +767,17 @@ backToTitleButton.onclick = () => {
   backToTitle();
 };
 
+// 音声のON/OFF。画面右上に常時表示し、どの画面からでも切り替えられる。
+function updateSoundToggleButton(): void {
+  const muted = isMuted();
+  soundToggleIcon.replaceChildren(createIcon(muted ? "volume-x" : "volume-2"));
+  soundToggleButton.classList.toggle("is-muted", muted);
+  soundToggleButton.setAttribute("aria-label", muted ? "音声をONにする" : "音声をOFFにする");
+}
+updateSoundToggleButton();
+onMuteChange(updateSoundToggleButton);
+soundToggleButton.onclick = () => toggleMuted();
+
 // retryも初回開始と同じく、次の投稿が届くまで自機なしで始まってしまう
 // (プレイ中ずっと投稿が来ないインスタンスだと特に目立つ)のを避けるため、
 // 読み込み済みのキャッシュから自機を再抽選する。
@@ -732,6 +793,7 @@ resumeButton.onclick = () => resumeGame();
 pauseRetryButton.onclick = () => {
   paused = false;
   pauseOverlay.hidden = true;
+  updatePauseButtonIcon();
   startRound(gameNow(), randomCachedEmojiImage());
 };
 pauseBackToTitleButton.onclick = () => {
@@ -798,6 +860,13 @@ collectionCloseButton.onclick = () => {
 };
 collectionDetailCloseButton.onclick = () => {
   collectionDetailOverlay.hidden = true;
+};
+
+licenseButton.onclick = () => {
+  licenseOverlay.hidden = false;
+};
+licenseCloseButton.onclick = () => {
+  licenseOverlay.hidden = true;
 };
 
 clearDataButton.onclick = () => {

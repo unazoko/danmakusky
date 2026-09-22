@@ -15,6 +15,44 @@ body {
     overflow: hidden;
 }
 
+/* Lucideアイコン(https://lucide.dev/)共通のベーススタイル。SVGはstroke=
+   currentColorなので、置き場所ごとにcolorを変えるだけで色が揃う。 */
+.icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    display: block;
+}
+
+/* 音声のON/OFF。どの画面(タイトル・プレイ中・結果・各種オーバーレイ)からも
+   常に押せるよう、個別のscreenには属さないbody直下の固定要素にする。 */
+.sound-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 9600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    background: rgba(124, 247, 255, 0.12);
+    color: #7cf7ff;
+    cursor: pointer;
+}
+.sound-toggle:active {
+    background: rgba(124, 247, 255, 0.3);
+}
+/* OFF状態は暗すぎると背景に溶けて見えなくなるため、警告色(#ff6e6e、
+   他のエラー表示等と同じ色)ではっきり視認できるようにする。 */
+.sound-toggle.is-muted {
+    border-color: rgba(255, 110, 110, 0.6);
+    background: rgba(255, 110, 110, 0.12);
+    color: #ff6e6e;
+}
+
 /* 全画面に常時薄いスキャンラインを重ねる飾り(判定や描画には一切関与しない、
    body直下の固定オーバーレイ)。 */
 body::before {
@@ -109,6 +147,10 @@ body::before {
     text-align: center;
 }
 #startButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: #7cf7ff;
     color: #05060a;
     border: none;
@@ -184,22 +226,68 @@ body::before {
 .title-footer {
     display: flex;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
 }
-.link-button {
-    background: none;
-    border: none;
-    color: #8fa3ad;
-    text-decoration: underline;
+/* 他のホログラム調ボタン(#backToTitleButton等)と同じ、半透明の背景+
+   縁取り+発光する文字のスタイルに揃える(ただの下線リンクだと浮いて見えるため)。 */
+.collection-link-button {
+    width: min(320px, 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(124, 247, 255, 0.08);
+    color: #7cf7ff;
+    border: 1px solid rgba(124, 247, 255, 0.4);
+    padding: 10px 20px;
     font: inherit;
     font-size: 0.8rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    border-radius: 4px;
+    cursor: pointer;
+    text-shadow: 0 0 6px rgba(124, 247, 255, 0.5);
+}
+.collection-link-button:active {
+    background: rgba(124, 247, 255, 0.2);
+    transform: translateY(1px);
+}
+/* ライセンス情報・データ削除は普段ほぼ見る必要のない項目なので、主要な
+   リンク(絵文字コレクション)とは分けて、画面下端に小さく添える程度に留める。 */
+.title-legal {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.title-legal-sep {
+    color: #4f6b78;
+    font-size: 0.7rem;
+}
+.legal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: #4f6b78;
+    text-decoration: underline;
+    font: inherit;
+    font-size: 0.7rem;
     cursor: pointer;
     padding: 0;
 }
+.legal-link-icon .icon {
+    width: 13px;
+    height: 13px;
+}
 /* データ削除は取り返しがつかない操作なので、他のリンクボタンと並んでいても
-   色だけで危険度が分かるようにする。 */
-.link-button-danger {
-    color: #ff6e6e;
+   色だけで危険度が分かるようにする(ただし目立たせすぎない暗めの赤)。 */
+.legal-link-danger {
+    color: #8a4f4f;
 }
 
 /* 絵文字コレクション(遭遇したカスタム絵文字の図鑑)。localStorageに保存された
@@ -233,6 +321,35 @@ body::before {
     color: #7cf7ff;
     letter-spacing: 0.15em;
     text-shadow: 0 0 10px rgba(124, 247, 255, 0.6);
+}
+/* ライセンス情報等、Markdownから変換したHTMLをそのまま流し込む領域。 */
+.markdown-doc {
+    overflow-y: auto;
+    font-size: 0.85rem;
+    color: #d8f7ff;
+    line-height: 1.6;
+    text-align: left;
+}
+.markdown-doc > *:first-child {
+    margin-top: 0;
+}
+.markdown-doc > *:last-child {
+    margin-bottom: 0;
+}
+.markdown-doc h3 {
+    margin: 14px 0 6px;
+    font-size: 0.9rem;
+    color: #7cf7ff;
+}
+.markdown-doc h3:first-child {
+    margin-top: 0;
+}
+.markdown-doc ul {
+    margin: 8px 0;
+    padding-left: 1.4em;
+}
+.markdown-doc a {
+    color: #7cf7ff;
 }
 .collection-list {
     overflow-y: auto;
@@ -306,8 +423,13 @@ body::before {
     font-size: 0.85rem;
     padding: 20px 0;
 }
-#collectionCloseButton {
+#collectionCloseButton,
+#licenseCloseButton {
     align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: transparent;
     color: #8fa3ad;
     border: 1px solid #2a3a42;
@@ -316,7 +438,8 @@ body::before {
     cursor: pointer;
     font: inherit;
 }
-#collectionCloseButton:active {
+#collectionCloseButton:active,
+#licenseCloseButton:active {
     transform: translateY(1px);
 }
 
@@ -376,6 +499,10 @@ body::before {
     color: #d8f7ff;
 }
 #collectionDetailCloseButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: transparent;
     color: #8fa3ad;
     border: 1px solid #2a3a42;
@@ -737,15 +864,15 @@ body::before {
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 44px;
     height: 32px;
     border-radius: 4px;
     border: 1px solid rgba(124, 247, 255, 0.5);
     background: rgba(124, 247, 255, 0.12);
     color: #7cf7ff;
-    font-size: 0.75rem;
-    font-weight: bold;
-    letter-spacing: 0.05em;
     cursor: pointer;
 }
 #pauseButton:active {

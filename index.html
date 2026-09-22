@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
+    <button id="soundToggleButton" type="button" class="sound-toggle" aria-label="音声のON/OFF">
+      <span id="soundToggleIcon" class="sound-toggle-icon"></span>
+    </button>
+
     <div id="titleScreen" class="screen">
       <div class="title-header">
         <h1>DANMAKUSKY</h1>
@@ -19,7 +23,10 @@
           接続先インスタンス
           <input id="instanceInput" type="text" value="misskey.io" autocomplete="off" spellcheck="false" />
         </label>
-        <button id="startButton" type="button">START</button>
+        <button id="startButton" type="button">
+          <span id="startButtonIcon" class="btn-icon"></span>
+          START
+        </button>
         <p id="titleError" class="error-text" hidden></p>
       </div>
 
@@ -40,8 +47,33 @@
       </div>
 
       <div class="title-footer">
-        <button id="collectionButton" type="button" class="link-button">カスタム絵文字コレクションを見る</button>
-        <button id="clearDataButton" type="button" class="link-button link-button-danger">データを削除</button>
+        <button id="collectionButton" type="button" class="collection-link-button">
+          <span id="collectionButtonIcon" class="collection-link-icon"></span>
+          カスタム絵文字コレクション
+        </button>
+      </div>
+
+      <div class="title-legal">
+        <button id="licenseButton" type="button" class="legal-link">
+          <span id="licenseButtonIcon" class="legal-link-icon"></span>
+          ライセンス情報
+        </button>
+        <span class="title-legal-sep">・</span>
+        <button id="clearDataButton" type="button" class="legal-link legal-link-danger">
+          <span id="clearDataButtonIcon" class="legal-link-icon"></span>
+          データ削除
+        </button>
+      </div>
+    </div>
+
+    <div id="licenseOverlay" class="collection-overlay" hidden>
+      <div class="collection-panel">
+        <h2>LICENSE</h2>
+        <div id="licenseContent" class="markdown-doc"></div>
+        <button id="licenseCloseButton" type="button">
+          <span id="licenseCloseButtonIcon" class="btn-icon"></span>
+          閉じる
+        </button>
       </div>
     </div>
 
@@ -49,7 +81,10 @@
       <div class="collection-panel">
         <h2>CUSTOM EMOJI COLLECTION</h2>
         <div id="collectionList" class="collection-list"></div>
-        <button id="collectionCloseButton" type="button">閉じる</button>
+        <button id="collectionCloseButton" type="button">
+          <span id="collectionCloseButtonIcon" class="btn-icon"></span>
+          閉じる
+        </button>
       </div>
     </div>
 
@@ -61,7 +96,10 @@
           <div><dt>遭遇回数</dt><dd id="collectionDetailCount">0</dd></div>
           <div><dt>被撃墜回数</dt><dd id="collectionDetailDefeat">0</dd></div>
         </dl>
-        <button id="collectionDetailCloseButton" type="button">閉じる</button>
+        <button id="collectionDetailCloseButton" type="button">
+          <span id="collectionDetailCloseButtonIcon" class="btn-icon"></span>
+          閉じる
+        </button>
       </div>
     </div>
 
@@ -110,7 +148,9 @@
         </div>
       </div>
       <div id="bootSequence" class="boot-sequence" hidden></div>
-      <button id="pauseButton" type="button" aria-label="一時停止">II</button>
+      <button id="pauseButton" type="button" aria-label="一時停止">
+        <span id="pauseButtonIcon" class="btn-icon"></span>
+      </button>
       <div id="pauseOverlay" class="pause-overlay" hidden>
         <h2>PAUSED</h2>
         <div class="pause-buttons">
@@ -141,9 +181,9 @@
         <p id="highScoreLine" class="high-score-line"></p>
 
         <div class="result-buttons">
-          <button id="backToTitleButton" type="button">スタート画面に戻る</button>
           <button id="retryButton" type="button">もう一度遊ぶ</button>
           <button id="shareButton" type="button">結果を投稿する</button>
+          <button id="backToTitleButton" type="button">スタート画面に戻る</button>
         </div>
       </div>
     </div>
