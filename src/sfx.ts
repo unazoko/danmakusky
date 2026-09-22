@@ -1,16 +1,55 @@
-// 効果音の単発再生。BGMと違って毎回使い捨てのAudioを作る(同じ効果音が
-// 重なって鳴ってもきちんと重ねて再生できるようにするため)。
+// 効果音の再生。<audio>要素を毎回new Audio()で使い捨てにする実装だと、
+// 同時に鳴らせるHTMLAudioElementの数に上限があるブラウザ(特にiOS Safari)で、
+// 連射(射撃音)により上限を超えた瞬間から新しい音が鳴らなくなったり、
+// 再生中のBGM(こちらも<audio>要素)まで巻き込まれて途切れることがある
+// (本番環境で確認された不具合)。Web Audio APIでデコード済みの音声データ
+// (AudioBuffer)をキャッシュし、再生のたびは軽量なAudioBufferSourceNodeを
+// 作るだけにすることで、この上限を回避する。
 import { isMuted } from "./audioSettings.js";
 
 const SFX_VOLUME = 0.6;
 
+let audioContext: AudioContext | null = null;
+function getAudioContext(): AudioContext {
+  if (!audioContext) audioContext = new AudioContext();
+  return audioContext;
+}
+
+// デコード済みのAudioBufferをファイル名ごとにキャッシュする
+// (何度再生してもデコードは1回だけで済む)。
+const bufferCache = new Map<string, Promise<AudioBuffer>>();
+function loadBuffer(ctx: AudioContext, filename: string): Promise<AudioBuffer> {
+  const cached = bufferCache.get(filename);
+  if (cached) return cached;
+  const promise = fetch(encodeURI(`/sounds/effects/${filename}`))
+    .then((res) => res.arrayBuffer())
+    .then((data) => ctx.decodeAudioData(data));
+  bufferCache.set(filename, promise);
+  return promise;
+}
+
+function playBuffer(ctx: AudioContext, buffer: AudioBuffer, volume: number): AudioBufferSourceNode {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const gain = ctx.createGain();
+  gain.gain.value = volume;
+  source.connect(gain).connect(ctx.destination);
+  source.start();
+  return source;
+}
+
 function playSfx(filename: string, volume: number = SFX_VOLUME): void {
   if (isMuted()) return;
-  const audio = new Audio(encodeURI(`/sounds/effects/${filename}`));
-  audio.volume = volume;
-  // ブラウザの自動再生ポリシーで拒否される場合があるが、鳴らなくても
-  // 致命的ではないので黙って無視する。
-  audio.play().catch(() => {});
+  const ctx = getAudioContext();
+  // ブラウザの自動再生ポリシーでcontextがsuspendedのままのことがあるので、
+  // 念のため毎回resumeを試みる(既にrunningなら何もしない)。
+  void ctx.resume();
+  loadBuffer(ctx, filename)
+    .then((buffer) => {
+      if (isMuted()) return; // デコード待ちの間にミュートされた場合は鳴らさない
+      playBuffer(ctx, buffer, volume);
+    })
+    .catch(() => {});
 }
 
 // 再生完了(またはエラー・自動再生拒否)を待てる版。呼び出し側が「鳴り終わって
@@ -18,14 +57,21 @@ function playSfx(filename: string, volume: number = SFX_VOLUME): void {
 // 音自体が無いので、待たせずすぐ解決する。
 function playSfxAwait(filename: string, volume: number = SFX_VOLUME): Promise<void> {
   if (isMuted()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const audio = new Audio(encodeURI(`/sounds/effects/${filename}`));
-    audio.volume = volume;
-    const done = () => resolve();
-    audio.addEventListener("ended", done, { once: true });
-    audio.addEventListener("error", done, { once: true });
-    audio.play().catch(done);
-  });
+  const ctx = getAudioContext();
+  void ctx.resume();
+  return loadBuffer(ctx, filename)
+    .then(
+      (buffer) =>
+        new Promise<void>((resolve) => {
+          if (isMuted()) {
+            resolve();
+            return;
+          }
+          const source = playBuffer(ctx, buffer, volume);
+          source.onended = () => resolve();
+        }),
+    )
+    .catch(() => {});
 }
 
 export function playStartScreenSfx(): void {
