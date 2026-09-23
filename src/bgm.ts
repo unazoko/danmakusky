@@ -5,11 +5,14 @@ import { isMuted, onMuteChange } from "./audioSettings.js";
 const BGM_FILES = [
   "魔王魂 ループ サイバー01.mp3",
   "魔王魂 ループ サイバー02.mp3",
+  "魔王魂 ループ サイバー11.mp3",
   "魔王魂 ループ サイバー14.mp3",
-  "魔王魂 ループ サイバー16.mp3",
+  "魔王魂 ループ BGM ネオロック33.mp3",
+  "魔王魂 ループ BGM ネオロック73.mp3",
 ];
 
-const NORMAL_VOLUME = 0.30;
+
+const NORMAL_VOLUME = 0.35;
 // PAUSE中は「一時停止していることが分かる」程度まで下げる(消音にはしない)。
 const PAUSED_VOLUME = 0.08;
 
