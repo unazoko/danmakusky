@@ -23,8 +23,9 @@ let closeButton: HTMLButtonElement;
 let toggleButton: HTMLButtonElement;
 let resizeHandle: HTMLDivElement;
 
+// デフォルトは非表示(明示的に"1"を保存した場合のみ表示する)。
 function getVisible(): boolean {
-  return localStorage.getItem(VISIBLE_KEY) !== "0";
+  return localStorage.getItem(VISIBLE_KEY) === "1";
 }
 
 // トグルボタンの見た目(アイコン・色)を、soundToggleButtonのON/OFF表示と
