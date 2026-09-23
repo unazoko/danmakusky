@@ -1,6 +1,6 @@
 import { marked } from "marked";
 import { MisskeyStream, type StreamStatus } from "./misskeyStream.js";
-import { extractEmojiOccurrences, type EmojiOccurrence } from "./noteEmoji.js";
+import { extractEmojiOccurrences, buildCutInText, type EmojiOccurrence } from "./noteEmoji.js";
 import {
   getOrLoadEmojiImage,
   randomCachedEmojiImage,
@@ -27,7 +27,8 @@ import {
 import { Starfield } from "./starfield.js";
 import { initCommentTicker, pushNoteToTicker, resetCommentTicker } from "./commentTicker.js";
 import { playRandomBgm, stopBgm, setBgmPaused } from "./bgm.js";
-import { isMuted, toggleMuted, onMuteChange } from "./audioSettings.js";
+import { isMuted, toggleMuted, onMuteChange, isRememberMuted, setRememberMuted } from "./audioSettings.js";
+import { isCutInFlavorMode, setCutInFlavorMode } from "./cutInSettings.js";
 import { createIcon } from "./icons.js";
 import {
   playStartScreenSfx,
@@ -101,6 +102,8 @@ const collectionCloseButtonIcon = $<HTMLSpanElement>("#collectionCloseButtonIcon
 const collectionDetailCloseButtonIcon = $<HTMLSpanElement>("#collectionDetailCloseButtonIcon");
 const aboutCloseButtonIcon = $<HTMLSpanElement>("#aboutCloseButtonIcon");
 const aboutButtonIcon = $<HTMLSpanElement>("#aboutButtonIcon");
+const settingsButtonIcon = $<HTMLSpanElement>("#settingsButtonIcon");
+const settingsCloseButtonIcon = $<HTMLSpanElement>("#settingsCloseButtonIcon");
 const licenseToggleIcon = $<HTMLSpanElement>("#licenseToggleIcon");
 const licenseChevronIcon = $<HTMLSpanElement>("#licenseChevronIcon");
 const clearDataButtonIcon = $<HTMLSpanElement>("#clearDataButtonIcon");
@@ -110,6 +113,8 @@ collectionCloseButtonIcon.append(createIcon("x"));
 collectionDetailCloseButtonIcon.append(createIcon("x"));
 aboutCloseButtonIcon.append(createIcon("x"));
 aboutButtonIcon.append(createIcon("info"));
+settingsButtonIcon.append(createIcon("settings"));
+settingsCloseButtonIcon.append(createIcon("x"));
 licenseToggleIcon.append(createIcon("copyright"));
 licenseChevronIcon.append(createIcon("chevron-down"));
 clearDataButtonIcon.append(createIcon("trash-2"));
@@ -165,6 +170,11 @@ const aboutCloseButton = $<HTMLButtonElement>("#aboutCloseButton");
 const licenseToggle = $<HTMLButtonElement>("#licenseToggle");
 const licenseRows = $<HTMLDivElement>("#licenseRows");
 const licenseContent = $<HTMLDivElement>("#licenseContent");
+const settingsButton = $<HTMLButtonElement>("#settingsButton");
+const settingsOverlay = $<HTMLDivElement>("#settingsOverlay");
+const settingsCloseButton = $<HTMLButtonElement>("#settingsCloseButton");
+const cutInFlavorModeCheckbox = $<HTMLInputElement>("#cutInFlavorModeCheckbox");
+const rememberSoundCheckbox = $<HTMLInputElement>("#rememberSoundCheckbox");
 
 // 確認ダイアログ・About・ライセンス情報のMarkdownをHTMLへ変換しcontainerへ差し込む。
 // 内容はdanmakusky自身がビルド時に同梱する文書(利用者の入力ではない)なので、
@@ -314,14 +324,59 @@ function processCutInQueue(): void {
   playCutIn(core);
 }
 
+// カットインの引用文中の「:name:」はひとかたまりのトークンとして扱い、
+// 表示幅で切り詰める際もその途中(例:「:hog」)では切らないようにする。
+const CUT_IN_EMOJI_CODE_RE = /:[a-zA-Z0-9_+-]+:/g;
+function tokenizeForTruncation(text: string): string[] {
+  const tokens: string[] = [];
+  let lastIndex = 0;
+  CUT_IN_EMOJI_CODE_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = CUT_IN_EMOJI_CODE_RE.exec(text))) {
+    tokens.push(...text.slice(lastIndex, m.index));
+    tokens.push(m[0]);
+    lastIndex = CUT_IN_EMOJI_CODE_RE.lastIndex;
+  }
+  tokens.push(...text.slice(lastIndex));
+  return tokens;
+}
+
+// el(表示幅が既に確定している要素)にtextを設定した際、実際の表示幅に
+// 収まる範囲で1行に切り詰める(改行はさせない、はみ出す場合は末尾を
+// 「...」にする)。文字数ではなく実際の描画幅で判定するのは、":hoge:"の
+// ようなカスタム絵文字記法を跨いだ半端な位置でカットしないようにするため。
+function truncateToFit(el: HTMLElement, text: string): string {
+  el.textContent = text;
+  const maxWidth = el.clientWidth;
+  if (maxWidth <= 0 || el.scrollWidth <= maxWidth) return text;
+
+  const tokens = tokenizeForTruncation(text);
+  let lo = 0;
+  let hi = tokens.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    el.textContent = tokens.slice(0, mid).join("") + "...";
+    if (el.scrollWidth <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  const result = lo > 0 ? tokens.slice(0, lo).join("") + "..." : "...";
+  el.textContent = result;
+  return result;
+}
+
 function playCutIn(core: Core): void {
   cutInPlaying = true;
   cutInImg.src = core.img.src;
   cutInLabel.textContent = cutInTierLabel(core.tier);
   cutInName.textContent = core.shortcode ? `:${core.shortcode}:` : "???";
-  cutInQuote.textContent = randomCutInQuote(core.tier);
   cutIn.dataset.tier = core.tier;
+  // 表示幅を測って切り詰める(truncateToFit)には実際にレイアウトされている
+  // 必要があるため、hidden解除を先に行う。
   cutIn.hidden = false;
+
+  if (!isCutInFlavorMode() && core.cutInText) truncateToFit(cutInQuote, core.cutInText);
+  else cutInQuote.textContent = randomCutInQuote(core.tier);
+
   // 一度hidden解除してからclass付与しないとtransitionが発火しないため、次フレームに回す。
   requestAnimationFrame(() => cutIn.classList.add("show"));
 
@@ -605,12 +660,18 @@ function startGame(host: string): void {
       // 溜め込んだ分をまとめて反映する、といったこともしない)。
       if (paused) return;
       noteRateTracker?.record(performance.now());
-      reactionTracker?.track(note.id);
+      // まだノート本文を持っているこの時点でカットイン引用文を先読みして
+      // おく(リアクションのnoteUpdatedイベント自体には本文が来ないため、
+      // 後から取得しようとすると追加のHTTPリクエストが要る。ここで済ませて
+      // おけばそれが不要になる、reactionTracker.ts参照)。
+      reactionTracker?.track(note.id, buildCutInText(note.text, note.replyId));
       // リノートの場合、リノート自体だけでなく元投稿の方にもリアクションが
       // 付きうるので、そちらも合わせて追跡する。
-      if (note.renote) reactionTracker?.track(note.renote.id);
+      if (note.renote) {
+        reactionTracker?.track(note.renote.id, buildCutInText(note.renote.text, note.renote.replyId));
+      }
 
-      pushNoteToTicker(note);
+      pushNoteToTicker(note, host);
 
       const occurrences = extractEmojiOccurrences(note, host);
       if (occurrences.length === 0) return;
@@ -926,6 +987,21 @@ collectionCloseButton.onclick = () => {
 };
 collectionDetailCloseButton.onclick = () => {
   collectionDetailOverlay.hidden = true;
+};
+
+settingsButton.onclick = () => {
+  rememberSoundCheckbox.checked = isRememberMuted();
+  cutInFlavorModeCheckbox.checked = isCutInFlavorMode();
+  settingsOverlay.hidden = false;
+};
+settingsCloseButton.onclick = () => {
+  settingsOverlay.hidden = true;
+};
+rememberSoundCheckbox.onchange = () => {
+  setRememberMuted(rememberSoundCheckbox.checked);
+};
+cutInFlavorModeCheckbox.onchange = () => {
+  setCutInFlavorMode(cutInFlavorModeCheckbox.checked);
 };
 
 aboutButton.onclick = () => {

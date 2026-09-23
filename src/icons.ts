@@ -16,6 +16,7 @@ import info from "lucide-static/icons/info.svg?raw";
 import chevronDown from "lucide-static/icons/chevron-down.svg?raw";
 import messageSquare from "lucide-static/icons/message-square.svg?raw";
 import messageSquareOff from "lucide-static/icons/message-square-off.svg?raw";
+import settings from "lucide-static/icons/settings.svg?raw";
 
 const ICONS = {
   "book-open": bookOpen,
@@ -33,6 +34,7 @@ const ICONS = {
   "chevron-down": chevronDown,
   "message-square": messageSquare,
   "message-square-off": messageSquareOff,
+  settings,
 } as const;
 
 export type IconName = keyof typeof ICONS;

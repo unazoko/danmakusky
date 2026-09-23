@@ -15,6 +15,7 @@ import {
   flowerBurstVelocities,
 } from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
+import { isCutInFlavorMode } from "../cutInSettings.js";
 
 interface TierConfig {
   maxHp: number;
@@ -85,6 +86,7 @@ interface RecentEmoji {
   shortcode: string;
   url: string;
   noteUrl: string;
+  cutInText: string | null;
 }
 
 export class CoreManager {
@@ -97,9 +99,9 @@ export class CoreManager {
 
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
-  registerEmoji(shortcode: string, url: string, noteUrl: string): void {
+  registerEmoji(shortcode: string, url: string, noteUrl: string, cutInText: string | null): void {
     if (BOSS_EXCLUDED_SHORTCODES.has(shortcode)) return;
-    this.recentEmojis.push({ shortcode, url, noteUrl });
+    this.recentEmojis.push({ shortcode, url, noteUrl, cutInText });
     if (this.recentEmojis.length > MAX_RECENT_EMOJI_URLS) this.recentEmojis.shift();
   }
 
@@ -163,12 +165,22 @@ export class CoreManager {
     if (now < this.nextSpawnAt) return;
     if (this.recentEmojis.length === 0) return;
 
+    // カットインを「投稿本文由来のみ」にするモード(設定のチェックボックスOFF、
+    // isCutInFlavorMode()===false)では、直近に使える本文(cutInText)を持つ
+    // 投稿が1件も無ければ、中ボス・強ボスにはなれない(弱ボスはカットイン
+    // 自体が無いので対象外、main.ts: enqueueCutIn参照)。フレーバーテキスト
+    // モード(===true)ではカットインは常にflavor.tsのランダム文言になる
+    // ため、この制限自体が不要(従来通り無制限)。
+    const flavorMode = isCutInFlavorMode();
+    const hasCutInTextCandidate = this.recentEmojis.some((e) => e.cutInText);
+
     // 強ボスは、中ボスが既にいる間は新たに出現させない(強ボスの激しい弾幕と
     // 中ボスの弾幕が重なると理不尽になりやすいため)。逆(強ボスがいる状態で
     // 中ボスが新たに出現すること)は許容する。
     const eligibleTiers = (Object.keys(TIER_CONFIG) as CoreTier[]).filter((tier) => {
       if (this.countByTier(tier) >= TIER_CONFIG[tier].maxSimultaneous) return false;
       if (tier === "strong" && this.countByTier("mid") > 0) return false;
+      if (!flavorMode && tier !== "weak" && !hasCutInTextCandidate) return false;
       return true;
     });
     if (eligibleTiers.length === 0) {
@@ -178,7 +190,17 @@ export class CoreManager {
 
     const tier = pickWeighted(eligibleTiers, (t) => TIER_CONFIG[t].spawnWeight);
     const cfg = TIER_CONFIG[tier];
-    const { shortcode, url, noteUrl } = this.recentEmojis[this.recentEmojis.length - 1];
+    // カットインの絵文字と引用文は、必ず同じ投稿由来のものにする(見た目と
+    // 引用文の出所がズレるとコンセプト的におかしいため)。中ボス・強ボスで
+    // 投稿本文由来モードの場合は、直近の中から使える本文を持つ最新の
+    // エントリをさかのぼって探す(eligibleTiersの絞り込みで存在は保証済み)。
+    // それ以外(弱ボス、またはフレーバーテキストモード)は従来通り単純に
+    // 最新のエントリを使う。
+    const picked =
+      !flavorMode && tier !== "weak"
+        ? this.findRecentEmojiWithCutInText()!
+        : this.recentEmojis[this.recentEmojis.length - 1];
+    const { shortcode, url, noteUrl, cutInText } = picked;
 
     // 強ボスは横方向の中心に固定して出現させる(それ以外は左右にばらけさせる)。
     const x = tier === "strong" ? canvasWidth / 2 : canvasWidth * (0.25 + Math.random() * 0.5);
@@ -205,6 +227,7 @@ export class CoreManager {
       moveGlideDurationMs: 0,
       nextRetargetAt: now + GLIDE_TIMING[tier].holdMinMs + Math.random() * GLIDE_TIMING[tier].holdRandomMs,
       noteUrl,
+      cutInText,
     };
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);
@@ -214,6 +237,16 @@ export class CoreManager {
 
   private countByTier(tier: CoreTier): number {
     return this.cores.filter((c) => c.tier === tier).length;
+  }
+
+  // recentEmojisを新しい方からさかのぼり、最初に見つかったcutInText付きの
+  // エントリを返す(trySpawn参照)。呼び出し側でhasCutInTextCandidateにより
+  // 存在が保証されている場合にのみ呼ぶ。
+  private findRecentEmojiWithCutInText(): RecentEmoji | undefined {
+    for (let i = this.recentEmojis.length - 1; i >= 0; i--) {
+      if (this.recentEmojis[i].cutInText) return this.recentEmojis[i];
+    }
+    return undefined;
   }
 
   // 弱・中・強のいずれも「ある地点までなめらかに移動→そこで静止して攻撃→

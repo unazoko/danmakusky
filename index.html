@@ -37,6 +37,10 @@
     </button>
 
     <div id="titleScreen" class="screen">
+      <button id="settingsButton" type="button" class="settings-button" aria-label="設定">
+        <span id="settingsButtonIcon" class="btn-icon"></span>
+      </button>
+
       <div class="title-header">
         <h1>DANMAKUSKY</h1>
         <p class="tagline">連合TL カスタム絵文字弾幕ゲーム</p>
@@ -83,10 +87,40 @@
           <span id="aboutButtonIcon" class="legal-link-icon"></span>
           About
         </button>
-        <span class="title-legal-sep">・</span>
-        <button id="clearDataButton" type="button" class="legal-link legal-link-danger">
-          <span id="clearDataButtonIcon" class="legal-link-icon"></span>
-          データ削除
+      </div>
+    </div>
+
+    <div id="settingsOverlay" class="collection-overlay" hidden>
+      <div class="collection-panel settings-panel">
+        <h2>設定</h2>
+        <div class="settings-item">
+          <label class="settings-checkbox-row">
+            <input id="rememberSoundCheckbox" type="checkbox" />
+            <span>音のON/OFFを記憶する</span>
+          </label>
+          <p class="settings-hint">
+            チェックを外すと、次回アクセス時は音OFFから始まります。
+          </p>
+        </div>
+        <div class="settings-item">
+          <label class="settings-checkbox-row">
+            <input id="cutInFlavorModeCheckbox" type="checkbox" />
+            <span>カットイン文言をフレーバーテキストに置き換える</span>
+          </label>
+          <p class="settings-hint">
+            画面録画などで他人の投稿本文が映り込むのを避けたい場合は、チェックを入れてください。
+          </p>
+        </div>
+        <div class="settings-item">
+          <button id="clearDataButton" type="button" class="legal-link legal-link-danger">
+            <span id="clearDataButtonIcon" class="legal-link-icon"></span>
+            データ削除
+          </button>
+          <p class="settings-hint">ハイスコアとカスタム絵文字コレクションの記録を削除します。</p>
+        </div>
+        <button id="settingsCloseButton" type="button">
+          <span id="settingsCloseButtonIcon" class="btn-icon"></span>
+          閉じる
         </button>
       </div>
     </div>
@@ -197,6 +231,7 @@
           <button id="commentTickerCloseButton" type="button" aria-label="コメント欄を隠す"></button>
         </div>
         <div id="commentTickerBody" class="comment-ticker-body"></div>
+        <div id="commentTickerResizeHandle" class="comment-ticker-resize-handle" aria-hidden="true"></div>
       </div>
       <div id="pauseOverlay" class="pause-overlay" hidden>
         <h2>PAUSED</h2>

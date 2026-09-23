@@ -132,7 +132,7 @@ export class GameState {
       playerY: this.player.y,
     };
     for (const occurrence of occurrences) {
-      this.coreManager.registerEmoji(occurrence.shortcode, occurrence.url, occurrence.noteUrl);
+      this.coreManager.registerEmoji(occurrence.shortcode, occurrence.url, occurrence.noteUrl, occurrence.cutInText);
       this.spawner.trySpawnFromOccurrence(occurrence, ctx, this.bullets);
     }
   }

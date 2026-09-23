@@ -25,10 +25,24 @@
 //   "userId":"..."}}}
 //   emojiがnullの場合はUnicode標準絵文字でのリアクションなので対象外にする。
 
+// 連合TLコメント欄の投稿者表示(main.ts/commentTicker.ts参照)に使う最小限の
+// ユーザー情報。hostはローカルユーザーの場合null(表示時は接続先インスタンス
+// のホスト名で補う)。
+export interface MisskeyUserLite {
+  username: string;
+  name: string | null;
+  host: string | null;
+}
+
 export interface MisskeyNote {
   id: string;
   text: string | null;
   cw: string | null;
+  user: MisskeyUserLite;
+  // リプライ先ノートのID(リプライでなければnull、NoteEntityService.ts参照)。
+  // カットイン演出で、リプライ等「特定の相手に向けた投稿」の本文を引用
+  // 対象から除外する判定に使う(noteEmoji.ts参照)。
+  replyId: string | null;
   // ローカル/リモート双方の絵文字ショートコード→絶対URL(サーバー側で解決済み)。
   emojis?: Record<string, string>;
   // 受信した時点で既に付いているカスタム絵文字リアクションのスナップショット
@@ -47,6 +61,9 @@ export interface CustomEmojiReaction {
   shortcode: string;
   url: string;
   noteUrl: string;
+  // リアクション自体には本文が無く取得しようもないため常にnull
+  // (EmojiOccurrence.cutInText参照)。
+  cutInText: string | null;
 }
 
 // ノートの永続リンク。ローカル/リモートを問わず、そのノートを受信した
@@ -231,6 +248,7 @@ export class MisskeyStream {
       shortcode: parseReactionShortcode(reacted.emoji.name),
       url: reacted.emoji.url,
       noteUrl: buildNoteUrl(this.host, body.id),
+      cutInText: null,
     });
   }
 

@@ -107,6 +107,10 @@ export interface Core {
   // このコアの出現きっかけとなった投稿の永続リンク(結果画面の
   // 「あなたを撃墜したノートを見る」ボタン用。Bullet.noteUrl参照)。
   noteUrl: string | null;
+  // 出現カットイン演出の引用文(装飾記号を取り除いた1行プレーンテキスト、
+  // main.ts: playCutIn参照)。使える本文が無かった場合はnull(その場合は
+  // flavor.tsのランダム文言にフォールバックする)。
+  cutInText: string | null;
 }
 
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする

@@ -35,7 +35,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
+    width: 44px;
     height: 32px;
     border-radius: 4px;
     border: 1px solid rgba(124, 247, 255, 0.5);
@@ -52,6 +52,31 @@ body {
     border-color: rgba(255, 110, 110, 0.6);
     background: rgba(255, 110, 110, 0.12);
     color: #ff6e6e;
+}
+
+/* 設定ボタン。タイトル画面限定(#titleScreenの子要素なのでタイトル画面が
+   隠れると一緒に隠れる)。音声ON/OFFボタンの左に同じ縦位置で並べる
+   (サイズは#pauseButtonに揃える。ゲーム画面側の#commentTickerToggleButton
+   と同じ位置・サイズにしているのは、タイトル画面とゲーム画面が同時に
+   表示されることは無いため)。 */
+.settings-button {
+    position: fixed;
+    top: 10px;
+    right: 60px;
+    z-index: 9600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    background: rgba(124, 247, 255, 0.12);
+    color: #7cf7ff;
+    cursor: pointer;
+}
+.settings-button:active {
+    background: rgba(124, 247, 255, 0.3);
 }
 
 /* 全画面に常時薄いスキャンラインを重ねる飾り(判定や描画には一切関与しない、
@@ -264,10 +289,6 @@ body::before {
     align-items: center;
     gap: 6px;
 }
-.title-legal-sep {
-    color: #7c9aa8;
-    font-size: 0.75rem;
-}
 .legal-link {
     display: inline-flex;
     align-items: center;
@@ -323,6 +344,75 @@ body::before {
     letter-spacing: 0.15em;
     text-shadow: 0 0 10px rgba(124, 247, 255, 0.6);
 }
+/* 設定ダイアログ。中身に対して.collection-panelの標準幅(480px)は広すぎる
+   ため専用に狭める。 */
+.settings-panel {
+    width: min(360px, 92vw);
+}
+/* チェックボックス1件分を、他の枠付き要素(.cause-panel等)と同じく
+   薄い縁取り+背景の箱にまとめ、浮いて見えないようにする。 */
+.settings-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: rgba(124, 247, 255, 0.05);
+    border: 1px solid rgba(124, 247, 255, 0.2);
+    border-radius: 6px;
+}
+.settings-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #d8f7ff;
+    line-height: 1.5;
+    text-align: left;
+    cursor: pointer;
+}
+/* ブラウザ標準のチェックボックスは未チェック時に白背景で描画され、暗い
+   画面の中で浮いて見える。見た目を他のUI(枠+シアンのアクセント)に
+   揃えるため独自に描画する。 */
+.settings-checkbox-row input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0;
+    border-radius: 4px;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    background: rgba(124, 247, 255, 0.08);
+    cursor: pointer;
+    position: relative;
+}
+.settings-checkbox-row input[type="checkbox"]:active {
+    background: rgba(124, 247, 255, 0.25);
+}
+.settings-checkbox-row input[type="checkbox"]:checked {
+    background: #7cf7ff;
+    border-color: #7cf7ff;
+}
+.settings-checkbox-row input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #05060a;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.settings-hint {
+    margin: 0;
+    padding-left: 30px;
+    font-size: 0.72rem;
+    color: #8fa3ad;
+    line-height: 1.5;
+    text-align: left;
+}
+
 /* ライセンス情報等、Markdownから変換したHTMLをそのまま流し込む領域。 */
 .markdown-doc {
     overflow-y: auto;
@@ -473,7 +563,8 @@ body::before {
     padding: 20px 0;
 }
 #collectionCloseButton,
-#aboutCloseButton {
+#aboutCloseButton,
+#settingsCloseButton {
     align-self: center;
     display: flex;
     align-items: center;
@@ -488,7 +579,8 @@ body::before {
     font: inherit;
 }
 #collectionCloseButton:active,
-#aboutCloseButton:active {
+#aboutCloseButton:active,
+#settingsCloseButton:active {
     transform: translateY(1px);
 }
 
@@ -883,11 +975,16 @@ body::before {
     font-weight: bold;
     letter-spacing: 0.03em;
 }
+/* 投稿本文の引用文は改行させず1行に収める(main.ts: playCutIn/truncateToFit
+   参照。実際の表示幅で切り詰めてから代入するため、ここでのoverflowは
+   保険的な役割)。 */
 .cut-in-quote {
     margin: 0;
     font-size: 0.8rem;
     color: #d8f7ff;
     text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 /* コア撃破時の短い演出メッセージ。 */
@@ -906,12 +1003,12 @@ body::before {
     display: none;
 }
 
-/* 一時停止ボタン。HUD(.hud-left)の文字と重ならないよう上部中央に置く。 */
+/* 一時停止ボタン。右上でsoundToggleButton・#commentTickerToggleButtonと
+   横一列に並べる(HUDは左側にしか出ないため重ならない)。 */
 #pauseButton {
     position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 10px;
+    right: 110px;
     z-index: 100;
     display: flex;
     align-items: center;
@@ -929,21 +1026,19 @@ body::before {
 }
 
 /* 連合TLコメント欄の表示/非表示トグル。soundToggleButton(fixed、右上
-   top:10px/right:10px/40x32)のすぐ下に、同じ横位置・同じサイズで揃えて
-   並べる(サイズ違い・不自然な余白を無くすため)。トグルボタン自体は幅が
-   狭く右端に寄っているだけなので、HUD(.hud-left、スコア等、左側にしか
-   出ない)とは画面幅が狭い端末でも重ならない。
+   top:10px/right:10px/44x32)の左に、同じ縦位置で並べる。サイズは
+   #pauseButtonに揃える(44x32)。#pauseButtonはさらにこの左に並ぶ。
    z-indexは.pause-overlay(1000)より大きくし、soundToggleButtonと同様に
    一時停止中でも操作できるようにする。 */
 #commentTickerToggleButton {
     position: absolute;
-    top: 48px;
-    right: 10px;
+    top: 10px;
+    right: 60px;
     z-index: 1100;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
+    width: 44px;
     height: 32px;
     border-radius: 4px;
     border: 1px solid rgba(124, 247, 255, 0.5);
@@ -975,6 +1070,9 @@ body::before {
     top: 88px;
     right: 10px;
     width: 220px;
+    height: 220px;
+    min-width: 140px;
+    min-height: 80px;
     max-width: calc(100% - 20px);
     max-height: 40%;
     display: flex;
@@ -987,6 +1085,31 @@ body::before {
 }
 .comment-ticker[hidden] {
     display: none;
+}
+/* 右下の隅をドラッグしてサイズ変更できるようにする(commentTicker.ts:
+   wireResizeHandle参照)。ブラウザ標準のCSS resize:bothは、スマホFirefoxで
+   タッチ操作に反応しない・スマホChromeでは本文欄のスクロールバーと同じ
+   隅にあるため本文が下端までスクロールしていると掴めない、という問題が
+   あったため、独自のハンドルをPointer Events(自機操作等と同じ方式)で
+   実装している。 */
+.comment-ticker-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    touch-action: none;
+}
+.comment-ticker-resize-handle::before {
+    content: "";
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid rgba(255, 255, 255, 0.35);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.35);
 }
 .comment-ticker-handle {
     display: flex;
@@ -1028,11 +1151,43 @@ body::before {
     flex-direction: column;
     gap: 3px;
     padding: 6px 8px;
-    max-height: 160px;
+    /* .comment-tickerがresizeで大きくなった分をそのまま埋められるよう、
+       固定max-heightではなく残りスペース全部を使う(flex:1)。 */
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     font-size: 0.72rem;
     line-height: 1.35;
     color: #ffffff;
+    /* ブラウザ標準のスクロールバー(特にWindowsの太いグレー)は暗い半透明
+       パネルの中で浮いて見えるため、細身のシアン系に揃える(Firefox)。 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 247, 255, 0.4) transparent;
+}
+/* Chrome/Edge/Safari(WebKit系)向け。scrollbar-color(Firefox)では
+   効かないため別途指定する。 */
+.comment-ticker-body::-webkit-scrollbar {
+    width: 6px;
+}
+.comment-ticker-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.comment-ticker-body::-webkit-scrollbar-thumb {
+    background: rgba(124, 247, 255, 0.4);
+    border-radius: 3px;
+}
+.comment-ticker-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 247, 255, 0.7);
+}
+/* 投稿者表示行(表示名 @ユーザー名@インスタンス)。本文より控えめな色・
+   サイズにして区別する。 */
+.comment-ticker-header {
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.65rem;
+    color: #8fa3ad;
 }
 .comment-ticker-line {
     flex-shrink: 0;

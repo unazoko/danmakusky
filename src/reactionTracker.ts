@@ -11,13 +11,18 @@ const TRACK_DURATION_MS = 45_000;
 export class ReactionTracker {
   private readonly trackedOrder: string[] = [];
   private readonly timers = new Map<string, number>();
+  // 追跡開始時点(=まだノート本文を持っている瞬間、main.ts: onNote参照)で
+  // 先読みしておいたカットイン引用文。リアクションのnoteUpdatedイベント
+  // 自体には本文が含まれない(追加のHTTPリクエストもしない)ため、この
+  // キャッシュが無ければ常にnullになってしまう。
+  private readonly cutInTextByNoteId = new Map<string, string | null>();
 
   constructor(
     private readonly stream: MisskeyStream,
     private readonly onReaction: (r: CustomEmojiReaction) => void,
   ) {}
 
-  track(noteId: string): void {
+  track(noteId: string, cutInText: string | null): void {
     if (this.timers.has(noteId)) return;
 
     if (this.trackedOrder.length >= MAX_TRACKED_NOTES) {
@@ -26,7 +31,10 @@ export class ReactionTracker {
     }
 
     this.trackedOrder.push(noteId);
-    this.stream.subscribeToNoteReactions(noteId, this.onReaction);
+    this.cutInTextByNoteId.set(noteId, cutInText);
+    this.stream.subscribeToNoteReactions(noteId, (r) => {
+      this.onReaction({ ...r, cutInText: this.cutInTextByNoteId.get(noteId) ?? null });
+    });
     const timer = window.setTimeout(() => this.untrack(noteId), TRACK_DURATION_MS);
     this.timers.set(noteId, timer);
   }
@@ -35,6 +43,7 @@ export class ReactionTracker {
     const timer = this.timers.get(noteId);
     if (timer !== undefined) window.clearTimeout(timer);
     this.timers.delete(noteId);
+    this.cutInTextByNoteId.delete(noteId);
 
     const idx = this.trackedOrder.indexOf(noteId);
     if (idx !== -1) this.trackedOrder.splice(idx, 1);
