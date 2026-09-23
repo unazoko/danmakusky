@@ -123,12 +123,12 @@ export function randomCoreDefeatLine(): string {
 
 const LIFE_UP_LINES = [
   "VITALITY RESTORED",
-  "残機が回復しました",
+  "キモティー！",
   "LIFE UP! ラッキー",
   "SYSTEM: 生き返った",
   "EMERGENCY REVIVAL SUCCESSFUL",
   "大丈夫なことにします",
-  "残機が増えました",
+  "たすかる",
   "うれしい",
   "SYSTEM: もう一回だけ",
   "復活しました",
