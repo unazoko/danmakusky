@@ -92,13 +92,20 @@ export class InputController {
   }
 
   private keepOutOfFireButton(player: Player): void {
+    // canvasの表示サイズ(CSS px)と内部の論理サイズ(canvas.width/height、
+    // 弾幕・当たり判定等すべてがこの座標系)は縦長スマホでは一致しない
+    // (main.ts: resizeCanvas参照)。fireButtonElは実DOM要素なので位置は
+    // 表示サイズ(CSS px)基準になっており、論理座標のplayer.x/yと比較する
+    // 前にスケール変換が必要。
     const canvasRect = this.canvas.getBoundingClientRect();
     const btnRect = this.fireButtonEl!.getBoundingClientRect();
+    const scaleX = this.canvas.width / canvasRect.width;
+    const scaleY = this.canvas.height / canvasRect.height;
     const margin = player.spriteSize / 2;
-    const left = btnRect.left - canvasRect.left - margin;
-    const right = btnRect.right - canvasRect.left + margin;
-    const top = btnRect.top - canvasRect.top - margin;
-    const bottom = btnRect.bottom - canvasRect.top + margin;
+    const left = (btnRect.left - canvasRect.left) * scaleX - margin;
+    const right = (btnRect.right - canvasRect.left) * scaleX + margin;
+    const top = (btnRect.top - canvasRect.top) * scaleY - margin;
+    const bottom = (btnRect.bottom - canvasRect.top) * scaleY + margin;
     if (player.x < left || player.x > right || player.y < top || player.y > bottom) return;
 
     // 自機の中心がボタン領域(+余白)に入り込んでいる場合、一番近い辺まで
@@ -178,9 +185,14 @@ export class InputController {
   };
 
   private updateDragPosition(ev: PointerEvent): void {
+    // ev.clientX/Yはcanvasの表示サイズ(CSS px)基準。内部の論理サイズ
+    // (canvas.width/height)へスケール変換してから自機座標として使う
+    // (表示サイズ===内部サイズの端末ではscaleが1になり従来通り)。
     const rect = this.canvas.getBoundingClientRect();
-    this.dragX = ev.clientX - rect.left;
-    this.dragY = ev.clientY - rect.top - TOUCH_LIFT_PX;
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    this.dragX = (ev.clientX - rect.left) * scaleX;
+    this.dragY = (ev.clientY - rect.top) * scaleY - TOUCH_LIFT_PX;
   }
 }
 

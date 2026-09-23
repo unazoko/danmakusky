@@ -360,13 +360,32 @@ function scheduleGlitch(): void {
 // style.css: #gameScreen参照)。
 const MAX_PLAY_AREA_ASPECT = 0.8; // 幅 / 高さ の上限
 
+// 縦長スマホ(表示幅が狭い端末)では、これより実表示幅が狭くならないよう、
+// ゲーム内部の座標系(canvas.width/height、弾・自機・ボス等はすべてこの
+// 座標系のpxで固定サイズ)には最低幅を設ける。実際の表示サイズ(CSS上の
+// 見た目のサイズ)はcanvas.style.width/heightで別途、実端末幅に収まるよう
+// 指定する。ブラウザが内部解像度→表示サイズへ自動で縮小描画するため、
+// 弾やボスの「見た目のサイズ・密集具合」を個別に調整しなくても、狭い端末
+// ほど全体が均一に少し小さく表示され、密集感が和らぐ(弾のサイズ・速度・
+// 生成数などのゲームロジック側の定数は一切変更不要)。
+// 表示幅がこの値以上(PC等の十分広い端末)ではscale===1になり、内部/表示
+// サイズが完全に一致する=現行の計算式・見た目・難易度と1px単位で変わらない。
+const MIN_PLAYFIELD_WIDTH_PX = 480;
+
 // 「宇宙を飛んでいる」感じを出す背景の星々。ゲーム画面が出る前(タイトルの
 // 裏)から動かしても問題ないので、初回のresizeCanvas呼び出し時に作る。
 let starfield: Starfield | null = null;
 
 function resizeCanvas(): void {
-  canvas.width = Math.min(window.innerWidth, window.innerHeight * MAX_PLAY_AREA_ASPECT);
-  canvas.height = window.innerHeight;
+  const displayWidth = Math.min(window.innerWidth, window.innerHeight * MAX_PLAY_AREA_ASPECT);
+  const displayHeight = window.innerHeight;
+  const scale = Math.max(1, MIN_PLAYFIELD_WIDTH_PX / displayWidth);
+
+  canvas.width = displayWidth * scale;
+  canvas.height = displayHeight * scale;
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+
   if (starfield) starfield.resize(canvas.width, canvas.height);
   else starfield = new Starfield(canvas.width, canvas.height);
 }
