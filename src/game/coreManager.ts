@@ -12,6 +12,7 @@ import {
   concentricRingsVelocities,
   crossBurstVelocities,
   spiralArmVelocities,
+  flowerBurstVelocities,
 } from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
 
@@ -34,7 +35,7 @@ interface TierConfig {
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.5 },
   mid: { maxHp: 110, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.75 },
-  strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 8, attackIntervalMs: 500, lifeUpDropChance: 1 },
+  strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 8, attackIntervalMs: 600, lifeUpDropChance: 1 },
 };
 
 // このショートコードはボスにせず通常弾のみとする(指定による除外)。
@@ -276,12 +277,13 @@ export class CoreManager {
       // 単調な攻撃: 自機狙いを1発だけ。
       velocities = [aimedBullet(core.x, core.y, playerX, playerY)];
     } else if (core.tier === "mid") {
-      // 東方を参考に、螺旋・同心円・自機狙いの扇・十字(風車)をランダムに
-      // 織り交ぜる。強ボスよりも1回あたりの弾数を絞って密度を抑える。
+      // 東方を参考に、螺旋・同心円・自機狙いの扇・十字(風車)・花びら(バラ曲線)・
+      // 輪の切れ目(壁の隙間を抜けさせる)をランダムに織り交ぜる。強ボスよりも
+      // 1回あたりの弾数を絞って密度を抑える。
       core.attackAngle += (10 * Math.PI) / 180;
       const pattern = pickWeighted(
-        ["spiral", "rings", "fan", "cross"] as const,
-        (p) => ({ spiral: 25, rings: 20, fan: 30, cross: 25 })[p],
+        ["spiral", "rings", "fan", "cross", "flower", "ringGap"] as const,
+        (p) => ({ spiral: 20, rings: 15, fan: 20, cross: 15, flower: 15, ringGap: 15 })[p],
       );
       // 渦を巻く螺旋の間だけ移動を止め、それ以外に切り替わったら再び動かす
       // (updateMovement参照)。
@@ -292,28 +294,53 @@ export class CoreManager {
         velocities = concentricRingsVelocities(2, 6);
       } else if (pattern === "fan") {
         velocities = aimedFanVelocities(3, Math.PI / 4, core.x, core.y, playerX, playerY);
-      } else {
+      } else if (pattern === "cross") {
         velocities = crossBurstVelocities(core.attackAngle);
+      } else if (pattern === "flower") {
+        velocities = flowerBurstVelocities(24, 5, 90, 50, core.attackAngle);
+      } else {
+        // 自機方向を中心に、ほぼ一周(隙間だけ残す)広がる壁。隙間を通り抜けさせる。
+        velocities = aimedFanVelocities(14, Math.PI * 1.6, core.x, core.y, playerX, playerY);
       }
     } else {
       // 強ボス: 中ボスと同じ引き出し(螺旋・同心円+放射・自機狙いの広い扇・
-      // 二重十字)に加え、強ボス専用の「レーザー」をクールダウン付きで
-      // 織り交ぜる、最も激しい攻撃。
+      // 二重十字・花びら・輪の切れ目)に加え、逆回転の二重螺旋・強ボス専用の
+      // 「レーザー」をクールダウン付きで織り交ぜる、最も激しい攻撃。
       core.attackAngle += (16 * Math.PI) / 180;
-      type StrongPattern = "spiral" | "ringsBurst" | "fan" | "doubleCross" | "laser";
+      type StrongPattern =
+        | "spiral"
+        | "ringsBurst"
+        | "fan"
+        | "doubleCross"
+        | "flower"
+        | "dualSpiral"
+        | "ringGap"
+        | "laser";
       const weights: Record<StrongPattern, number> = {
-        spiral: 30,
-        ringsBurst: 18,
-        fan: 18,
-        doubleCross: 14,
-        laser: 20,
+        spiral: 20,
+        ringsBurst: 14,
+        fan: 14,
+        doubleCross: 10,
+        flower: 12,
+        dualSpiral: 8,
+        ringGap: 6,
+        laser: 16,
       };
-      const candidates: StrongPattern[] = ["spiral", "ringsBurst", "fan", "doubleCross"];
+      const candidates: StrongPattern[] = [
+        "spiral",
+        "ringsBurst",
+        "fan",
+        "doubleCross",
+        "flower",
+        "dualSpiral",
+        "ringGap",
+      ];
       if (now >= this.nextLaserAt) candidates.push("laser");
       const pattern = pickWeighted(candidates, (p) => weights[p]);
-      // 螺旋・レーザーの間だけ移動を止める(レーザーも狙いを定めてから
+      // 螺旋・二重螺旋・レーザーの間だけ移動を止める(いずれも複数ティックに
+      // またがって発生点の一貫性が必要、またはレーザーのように狙いを定めてから
       // 撃つ性質上、本体が動いていると不自然なため)。
-      core.frozenForPattern = pattern === "spiral" || pattern === "laser";
+      core.frozenForPattern = pattern === "spiral" || pattern === "dualSpiral" || pattern === "laser";
 
       if (pattern === "laser") {
         this.spawnLaser(core, now, playerX, playerY);
@@ -322,10 +349,20 @@ export class CoreManager {
 
       if (pattern === "spiral") {
         velocities = spiralArmVelocities(5, core.attackAngle);
+      } else if (pattern === "dualSpiral") {
+        // 同じ角度を逆向きにも使うことで、互い違いに回る二重螺旋(二重らせん)にする。
+        velocities = [
+          ...spiralArmVelocities(3, core.attackAngle),
+          ...spiralArmVelocities(3, -core.attackAngle),
+        ];
       } else if (pattern === "ringsBurst") {
         velocities = [...concentricRingsVelocities(2, 12), ...circularBurst(8, core.attackAngle)];
       } else if (pattern === "fan") {
         velocities = aimedFanVelocities(5, Math.PI / 2.5, core.x, core.y, playerX, playerY);
+      } else if (pattern === "flower") {
+        velocities = flowerBurstVelocities(32, 6, 100, 60, core.attackAngle);
+      } else if (pattern === "ringGap") {
+        velocities = aimedFanVelocities(20, Math.PI * 1.75, core.x, core.y, playerX, playerY);
       } else {
         velocities = [
           ...crossBurstVelocities(core.attackAngle),

@@ -101,6 +101,34 @@ export function updateBullet(
       break;
     }
 
+    case "curve": {
+      behavior.angle += behavior.curveRadPerSec * dtSec;
+      b.vx = Math.cos(behavior.angle) * behavior.speed;
+      b.vy = Math.sin(behavior.angle) * behavior.speed;
+      b.x += b.vx * dtSec;
+      b.y += b.vy * dtSec;
+      break;
+    }
+
+    case "pulse": {
+      const elapsedSec = (now - behavior.startedAt) / 1000;
+      const speed = behavior.baseSpeed + Math.sin(elapsedSec * behavior.angularFreq) * behavior.amplitude;
+      b.vx = Math.cos(behavior.baseAngle) * speed;
+      b.vy = Math.sin(behavior.baseAngle) * speed;
+      b.x += b.vx * dtSec;
+      b.y += b.vy * dtSec;
+      break;
+    }
+
+    case "accel": {
+      behavior.speed = Math.min(behavior.speed + behavior.accelPxPerSec2 * dtSec, behavior.maxSpeed);
+      b.vx = Math.cos(behavior.angle) * behavior.speed;
+      b.vy = Math.sin(behavior.angle) * behavior.speed;
+      b.x += b.vx * dtSec;
+      b.y += b.vy * dtSec;
+      break;
+    }
+
     case "splitter": {
       if (!behavior.triggered && now >= behavior.triggerAt) {
         behavior.triggered = true;

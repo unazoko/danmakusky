@@ -35,7 +35,17 @@ export type BulletBehavior =
   | { kind: "delayedAccel"; triggerAt: number; angle: number; speed: number; triggered: boolean }
   // 複数方向への分裂。指定時刻に、その場で複数方向へ分裂した新しい弾を撒く
   // (元の弾は消える)。
-  | { kind: "splitter"; triggerAt: number; splitCount: number; speed: number; triggered: boolean };
+  | { kind: "splitter"; triggerAt: number; splitCount: number; speed: number; triggered: boolean }
+  // 一定の角速度で弧を描き続ける(プレイヤーを追尾はしない、曲がる向き・
+  // 速さは発生時に固定)。ゆっくり追尾(homing)と違い曲線の形が予測できる分、
+  // 見た目の面白さ重視のパターン。
+  | { kind: "curve"; angle: number; speed: number; curveRadPerSec: number }
+  // 速さが正弦波状に変化し続ける(アコーディオンのように間隔が伸び縮みして
+  // 見える)。方向は発生時のまま固定。
+  | { kind: "pulse"; baseAngle: number; baseSpeed: number; amplitude: number; angularFreq: number; startedAt: number }
+  // 発生時はゆっくりだが、飛んでいる間ずっと加速し続ける(上限あり)。
+  // 見た目の速度から予測して避けると急加速に間に合わなくなる、油断させる弾。
+  | { kind: "accel"; angle: number; speed: number; accelPxPerSec2: number; maxSpeed: number };
 
 export interface Bullet {
   id: number;

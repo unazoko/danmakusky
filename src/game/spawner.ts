@@ -19,6 +19,9 @@ import {
   redirectMotion,
   delayedAccelMotion,
   splitterMotion,
+  curveMotion,
+  pulseMotion,
+  accelMotion,
   type Velocity,
 } from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
@@ -108,31 +111,40 @@ export class BulletSpawner {
       return;
     }
 
-    if (roll < 0.30) {
+    if (roll < 0.20) {
       const v = aimedBullet(origin.x, origin.y, ctx.playerX, ctx.playerY);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now));
-    } else if (roll < 0.45) {
+    } else if (roll < 0.30) {
       const v = straightBullet();
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now));
-    } else if (roll < 0.58) {
+    } else if (roll < 0.40) {
       const m = homingMotion(origin.x, origin.y, ctx.playerX, ctx.playerY);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.70) {
+    } else if (roll < 0.50) {
       const m = orbitMotion(origin.x, origin.y);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.82) {
+    } else if (roll < 0.58) {
       const m = zigzagMotion(ctx.now);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.91) {
+    } else if (roll < 0.66) {
       const m = redirectMotion(ctx.now);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.96) {
+    } else if (roll < 0.72) {
       const angle = Math.random() * Math.PI; // 停止後、下向き半円のどこかへ加速
       const m = delayedAccelMotion(ctx.now, angle);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else {
+    } else if (roll < 0.78) {
       const angle = Math.random() * Math.PI;
       const m = splitterMotion(ctx.now, angle);
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
+    } else if (roll < 0.86) {
+      const m = curveMotion();
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
+    } else if (roll < 0.93) {
+      const m = pulseMotion(ctx.now);
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
+    } else {
+      const m = accelMotion();
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     }
   }

@@ -119,6 +119,25 @@ export function crossBurstVelocities(baseAngle: number): Velocity[] {
   return result;
 }
 
+// 花びら状(バラ曲線)の弾幕。同じ間隔の角度に発生させつつ、速さを
+// sin(petals*角度)で周期的に変えることで、時間が経つにつれ花びらの形に
+// 広がっていく(東方でおなじみの「flower」系弾幕)。
+export function flowerBurstVelocities(
+  count: number,
+  petals: number,
+  baseSpeed: number,
+  amplitude: number,
+  angleOffset = 0,
+): Velocity[] {
+  const result: Velocity[] = [];
+  for (let i = 0; i < count; i++) {
+    const angle = angleOffset + (Math.PI * 2 * i) / count;
+    const speed = Math.max(baseSpeed + Math.sin(angle * petals) * amplitude, 20);
+    result.push(velocityFromAngle(angle, speed));
+  }
+  return result;
+}
+
 // --- ここから毎フレーム状態を進める系(game/bulletMotion.ts参照) -----------
 
 // ゆっくり追尾。初速はプレイヤー方向に緩く向け、以降は少しずつ曲げ続ける。
@@ -204,6 +223,52 @@ export function delayedAccelMotion(now: number, targetAngle: number): SpawnedMot
       angle: targetAngle,
       speed: randomSpeed() * 1.3,
       triggered: false,
+    },
+  };
+}
+
+// 一定角速度で弧を描き続ける(プレイヤー追尾はしない、曲がる向きは発生時に
+// ランダムで固定)。homingと違い曲線が予測できる分、見た目重視のパターン。
+export function curveMotion(): SpawnedMotion {
+  const angle = Math.random() * Math.PI; // 下向き半円
+  const speed = randomSpeed();
+  const curveRadPerSec = (Math.random() < 0.5 ? -1 : 1) * ((50 + Math.random() * 60) * Math.PI) / 180;
+  const v = velocityFromAngle(angle, speed);
+  return { ...v, behavior: { kind: "curve", angle, speed, curveRadPerSec } };
+}
+
+// 速さがアコーディオンのように伸び縮みし続ける(方向は固定)。
+export function pulseMotion(now: number): SpawnedMotion {
+  const baseAngle = Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 2.5); // 概ね下向き
+  const baseSpeed = randomSpeed();
+  const amplitude = baseSpeed * (0.4 + Math.random() * 0.3);
+  const v = velocityFromAngle(baseAngle, baseSpeed);
+  return {
+    ...v,
+    behavior: {
+      kind: "pulse",
+      baseAngle,
+      baseSpeed,
+      amplitude,
+      angularFreq: 2 + Math.random() * 2,
+      startedAt: now,
+    },
+  };
+}
+
+// 発生直後はゆっくりだが、飛んでいる間ずっと加速し続ける(上限あり)。
+export function accelMotion(): SpawnedMotion {
+  const angle = Math.random() * Math.PI; // 下向き半円
+  const speed = MIN_SPEED * 0.4;
+  const v = velocityFromAngle(angle, speed);
+  return {
+    ...v,
+    behavior: {
+      kind: "accel",
+      angle,
+      speed,
+      accelPxPerSec2: 220 + Math.random() * 140,
+      maxSpeed: MAX_SPEED * 2.2,
     },
   };
 }
