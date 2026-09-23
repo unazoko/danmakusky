@@ -938,7 +938,7 @@ viewNoteButton.onclick = () => {
   const url = lastGameOverInfo?.causeNoteUrl;
   if (!url) return;
   const confirmed = window.confirm(
-    `あなたを撃墜したノートを見ますか?(外部サイトが開きます)\nURL: ${url}`,
+    `あなたを撃墜したノートを見ますか?（外部サイトが開きます）\nURL: ${url}`,
   );
   if (!confirmed) return;
   window.open(url, "_blank", "noopener");
