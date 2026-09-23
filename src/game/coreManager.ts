@@ -163,9 +163,14 @@ export class CoreManager {
     if (now < this.nextSpawnAt) return;
     if (this.recentEmojis.length === 0) return;
 
-    const eligibleTiers = (Object.keys(TIER_CONFIG) as CoreTier[]).filter(
-      (tier) => this.countByTier(tier) < TIER_CONFIG[tier].maxSimultaneous,
-    );
+    // 強ボスは、中ボスが既にいる間は新たに出現させない(強ボスの激しい弾幕と
+    // 中ボスの弾幕が重なると理不尽になりやすいため)。逆(強ボスがいる状態で
+    // 中ボスが新たに出現すること)は許容する。
+    const eligibleTiers = (Object.keys(TIER_CONFIG) as CoreTier[]).filter((tier) => {
+      if (this.countByTier(tier) >= TIER_CONFIG[tier].maxSimultaneous) return false;
+      if (tier === "strong" && this.countByTier("mid") > 0) return false;
+      return true;
+    });
     if (eligibleTiers.length === 0) {
       this.nextSpawnAt = now + 1000; // 全枠埋まっている間は少し待って再チェック
       return;
