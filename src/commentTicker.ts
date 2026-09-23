@@ -9,13 +9,12 @@
 import type { MisskeyNote, MisskeyUserLite } from "./misskeyStream.js";
 import { createIcon } from "./icons.js";
 import { parseMfmSafe, mfmNodesToPlainText } from "./mfmPlainText.js";
+import { appendTextWithEmojis } from "./emojiText.js";
 
 const MAX_LINES = 30;
 const VISIBLE_KEY = "danmakusky-comment-ticker-visible";
 const POSITION_KEY = "danmakusky-comment-ticker-pos";
 const SIZE_KEY = "danmakusky-comment-ticker-size";
-
-const EMOJI_SHORTCODE_RE = /:([a-zA-Z0-9_+-]+):/g;
 
 let container: HTMLDivElement;
 let handle: HTMLDivElement;
@@ -42,51 +41,29 @@ function setVisible(visible: boolean): void {
   updateToggleButton(visible);
 }
 
-// プレーンテキスト中の「:name:」をcontainerへの画像挿入に差し替えながら、
-// それ以外はテキストノードとして追加していく。ノートのemojisは既に絶対URLへ
-// 解決済み(noteEmoji.ts参照)なので、Ashi@と違い非同期取得は不要。
-function appendTextWithEmojis(
-  target: DocumentFragment,
-  text: string,
-  emojis: Record<string, string> | undefined,
-): void {
-  let lastIndex = 0;
-  EMOJI_SHORTCODE_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-
-  while ((m = EMOJI_SHORTCODE_RE.exec(text))) {
-    const url = emojis?.[m[1]];
-    if (m.index > lastIndex) target.append(document.createTextNode(text.slice(lastIndex, m.index)));
-    if (url) {
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = `:${m[1]}:`;
-      img.className = "comment-ticker-emoji";
-      target.append(img);
-    } else {
-      target.append(document.createTextNode(m[0]));
-    }
-    lastIndex = EMOJI_SHORTCODE_RE.lastIndex;
-  }
-  if (lastIndex < text.length) target.append(document.createTextNode(text.slice(lastIndex)));
-}
-
 // ノート1件から、コメント欄の1件分(投稿者表示+プレーンテキスト・絵文字
 // 画像の本文)を組み立てる。単純リノート(本文なし)は元投稿の投稿者・本文を
 // 「RN:」を付けて表示し、元投稿にも本文が無い(画像のみ等)場合は表示する
 // ものが無いのでnullを返す。
 interface TickerEntry {
-  header: string;
+  header: DocumentFragment;
   body: DocumentFragment;
 }
 
 // 投稿者表示行を組み立てる。「表示名 @ユーザー名@インスタンス」の形式。
 // 表示名が未設定のユーザーもいるため、その場合はacct部分だけにする。
 // ローカルユーザー(user.host===null)はconnectedHost(接続先インスタンス)を
-// 補って完全なacctにする。
-function formatAuthor(user: MisskeyUserLite, connectedHost: string): string {
-  const acct = `@${user.username}@${user.host ?? connectedHost}`;
-  return user.name ? `${user.name} ${acct}` : acct;
+// 補って完全なacctにする。表示名中のカスタム絵文字(:name:)も本文と同じく
+// 画像に差し替える(acct部分はユーザー名の仕様上絵文字記法を含み得ないので
+// そのままテキストでよい)。
+function buildAuthorFragment(user: MisskeyUserLite, connectedHost: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  if (user.name) {
+    appendTextWithEmojis(frag, user.name, user.emojis, "comment-ticker-emoji");
+    frag.append(document.createTextNode(" "));
+  }
+  frag.append(document.createTextNode(`@${user.username}@${user.host ?? connectedHost}`));
+  return frag;
 }
 
 function buildEntry(note: MisskeyNote, connectedHost: string): TickerEntry | null {
@@ -110,9 +87,9 @@ function buildEntry(note: MisskeyNote, connectedHost: string): TickerEntry | nul
 
   const bodyFrag = document.createDocumentFragment();
   if (prefix) bodyFrag.append(document.createTextNode(prefix));
-  appendTextWithEmojis(bodyFrag, plain, emojis);
+  appendTextWithEmojis(bodyFrag, plain, emojis, "comment-ticker-emoji");
 
-  return { header: formatAuthor(user, connectedHost), body: bodyFrag };
+  return { header: buildAuthorFragment(user, connectedHost), body: bodyFrag };
 }
 
 export function pushNoteToTicker(note: MisskeyNote, connectedHost: string): void {
@@ -129,7 +106,7 @@ export function pushNoteToTicker(note: MisskeyNote, connectedHost: string): void
 
   const headerEl = document.createElement("div");
   headerEl.className = "comment-ticker-header";
-  headerEl.textContent = entry.header;
+  headerEl.append(entry.header);
   body.append(headerEl);
 
   const lineEl = document.createElement("div");

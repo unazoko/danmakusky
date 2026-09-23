@@ -986,6 +986,11 @@ body::before {
     white-space: nowrap;
     overflow: hidden;
 }
+.cut-in-quote-emoji {
+    height: 1.1em;
+    width: auto;
+    vertical-align: text-bottom;
+}
 
 /* コア撃破時の短い演出メッセージ。 */
 .core-message {

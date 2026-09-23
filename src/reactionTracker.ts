@@ -8,21 +8,26 @@ import type { CustomEmojiReaction, MisskeyStream } from "./misskeyStream.js";
 const MAX_TRACKED_NOTES = 40;
 const TRACK_DURATION_MS = 45_000;
 
+interface CachedCutIn {
+  text: string | null;
+  emojis: Record<string, string> | undefined;
+}
+
 export class ReactionTracker {
   private readonly trackedOrder: string[] = [];
   private readonly timers = new Map<string, number>();
   // 追跡開始時点(=まだノート本文を持っている瞬間、main.ts: onNote参照)で
-  // 先読みしておいたカットイン引用文。リアクションのnoteUpdatedイベント
-  // 自体には本文が含まれない(追加のHTTPリクエストもしない)ため、この
-  // キャッシュが無ければ常にnullになってしまう。
-  private readonly cutInTextByNoteId = new Map<string, string | null>();
+  // 先読みしておいたカットイン引用文・絵文字マップ。リアクションの
+  // noteUpdatedイベント自体には本文が含まれない(追加のHTTPリクエストも
+  // しない)ため、このキャッシュが無ければ常にnull/undefinedになってしまう。
+  private readonly cutInByNoteId = new Map<string, CachedCutIn>();
 
   constructor(
     private readonly stream: MisskeyStream,
     private readonly onReaction: (r: CustomEmojiReaction) => void,
   ) {}
 
-  track(noteId: string, cutInText: string | null): void {
+  track(noteId: string, cutInText: string | null, cutInEmojis: Record<string, string> | undefined): void {
     if (this.timers.has(noteId)) return;
 
     if (this.trackedOrder.length >= MAX_TRACKED_NOTES) {
@@ -31,9 +36,10 @@ export class ReactionTracker {
     }
 
     this.trackedOrder.push(noteId);
-    this.cutInTextByNoteId.set(noteId, cutInText);
+    this.cutInByNoteId.set(noteId, { text: cutInText, emojis: cutInEmojis });
     this.stream.subscribeToNoteReactions(noteId, (r) => {
-      this.onReaction({ ...r, cutInText: this.cutInTextByNoteId.get(noteId) ?? null });
+      const cached = this.cutInByNoteId.get(noteId);
+      this.onReaction({ ...r, cutInText: cached?.text ?? null, cutInEmojis: cached?.emojis });
     });
     const timer = window.setTimeout(() => this.untrack(noteId), TRACK_DURATION_MS);
     this.timers.set(noteId, timer);
@@ -43,7 +49,7 @@ export class ReactionTracker {
     const timer = this.timers.get(noteId);
     if (timer !== undefined) window.clearTimeout(timer);
     this.timers.delete(noteId);
-    this.cutInTextByNoteId.delete(noteId);
+    this.cutInByNoteId.delete(noteId);
 
     const idx = this.trackedOrder.indexOf(noteId);
     if (idx !== -1) this.trackedOrder.splice(idx, 1);

@@ -30,6 +30,7 @@ import { playRandomBgm, stopBgm, setBgmPaused } from "./bgm.js";
 import { isMuted, toggleMuted, onMuteChange, isRememberMuted, setRememberMuted } from "./audioSettings.js";
 import { isCutInFlavorMode, setCutInFlavorMode } from "./cutInSettings.js";
 import { createIcon } from "./icons.js";
+import { appendTextWithEmojis } from "./emojiText.js";
 import {
   playStartScreenSfx,
   playResultSfx,
@@ -345,10 +346,16 @@ function tokenizeForTruncation(text: string): string[] {
 // 収まる範囲で1行に切り詰める(改行はさせない、はみ出す場合は末尾を
 // 「...」にする)。文字数ではなく実際の描画幅で判定するのは、":hoge:"の
 // ようなカスタム絵文字記法を跨いだ半端な位置でカットしないようにするため。
-function truncateToFit(el: HTMLElement, text: string): string {
+// 切り詰め位置の判定自体はプレーンテキストのまま行い(":hoge:"を画像化した
+// 場合の実際の幅は読み込み前は不定なため)、最後に確定した文字列だけを
+// カスタム絵文字画像付きで描画する(多少の見積差はoverflow:hiddenで吸収)。
+function truncateToFit(el: HTMLElement, text: string, emojis: Record<string, string> | undefined): void {
   el.textContent = text;
   const maxWidth = el.clientWidth;
-  if (maxWidth <= 0 || el.scrollWidth <= maxWidth) return text;
+  if (maxWidth <= 0 || el.scrollWidth <= maxWidth) {
+    renderQuoteWithEmojis(el, text, emojis);
+    return;
+  }
 
   const tokens = tokenizeForTruncation(text);
   let lo = 0;
@@ -360,8 +367,13 @@ function truncateToFit(el: HTMLElement, text: string): string {
     else hi = mid - 1;
   }
   const result = lo > 0 ? tokens.slice(0, lo).join("") + "..." : "...";
-  el.textContent = result;
-  return result;
+  renderQuoteWithEmojis(el, result, emojis);
+}
+
+function renderQuoteWithEmojis(el: HTMLElement, text: string, emojis: Record<string, string> | undefined): void {
+  const frag = document.createDocumentFragment();
+  appendTextWithEmojis(frag, text, emojis, "cut-in-quote-emoji");
+  el.replaceChildren(frag);
 }
 
 function playCutIn(core: Core): void {
@@ -374,7 +386,7 @@ function playCutIn(core: Core): void {
   // 必要があるため、hidden解除を先に行う。
   cutIn.hidden = false;
 
-  if (!isCutInFlavorMode() && core.cutInText) truncateToFit(cutInQuote, core.cutInText);
+  if (!isCutInFlavorMode() && core.cutInText) truncateToFit(cutInQuote, core.cutInText, core.cutInEmojis);
   else cutInQuote.textContent = randomCutInQuote(core.tier);
 
   // 一度hidden解除してからclass付与しないとtransitionが発火しないため、次フレームに回す。
@@ -637,6 +649,13 @@ function tick(now: number): void {
   requestAnimationFrame(tick);
 }
 
+// emojisマップ(ショートコード→絶対URL)の値を1つずつ先読みしておく
+// (getOrLoadEmojiImageは同じURLなら二重に読み込まない、render.ts参照)。
+function preloadEmojiMap(emojis: Record<string, string> | undefined): void {
+  if (!emojis) return;
+  for (const url of Object.values(emojis)) getOrLoadEmojiImage(url);
+}
+
 // ストリーム接続・自機絵文字の選定と画像読込は、進捗演出(runStartProgress)の
 // 裏側で先に済ませておく。ゲーム画面を実際に表示する(revealGame)のは、
 // 自機画像の準備ができてから(=自機が一瞬透明で始まる、を防ぐ)。
@@ -660,15 +679,33 @@ function startGame(host: string): void {
       // 溜め込んだ分をまとめて反映する、といったこともしない)。
       if (paused) return;
       noteRateTracker?.record(performance.now());
+
+      // 連合TLウィンドウ・カットインの表示(投稿者名・本文どちらも)に使う
+      // 可能性がある絵文字は、実際に表示する前にできるだけ早く先読みして
+      // おく。連合TLウィンドウは流れが速く、カットインも表示時間が短いため、
+      // 表示するその瞬間に初めて画像を取得し始めると読み込みが間に合わない
+      // ことがある(投稿者名の絵文字は、本文からの弾生成には使わないため
+      // 従来まったく先読みされていなかった)。
+      preloadEmojiMap(note.emojis);
+      preloadEmojiMap(note.user.emojis);
+      if (note.renote) {
+        preloadEmojiMap(note.renote.emojis);
+        preloadEmojiMap(note.renote.user.emojis);
+      }
+
       // まだノート本文を持っているこの時点でカットイン引用文を先読みして
       // おく(リアクションのnoteUpdatedイベント自体には本文が来ないため、
       // 後から取得しようとすると追加のHTTPリクエストが要る。ここで済ませて
       // おけばそれが不要になる、reactionTracker.ts参照)。
-      reactionTracker?.track(note.id, buildCutInText(note.text, note.replyId));
+      reactionTracker?.track(note.id, buildCutInText(note.text, note.replyId), note.emojis);
       // リノートの場合、リノート自体だけでなく元投稿の方にもリアクションが
       // 付きうるので、そちらも合わせて追跡する。
       if (note.renote) {
-        reactionTracker?.track(note.renote.id, buildCutInText(note.renote.text, note.renote.replyId));
+        reactionTracker?.track(
+          note.renote.id,
+          buildCutInText(note.renote.text, note.renote.replyId),
+          note.renote.emojis,
+        );
       }
 
       pushNoteToTicker(note, host);
@@ -946,7 +983,7 @@ function renderCollection(): void {
   if (entries.length === 0) {
     const empty = document.createElement("p");
     empty.className = "collection-empty";
-    empty.textContent = "まだ何も記録されていません。プレイして絵文字と出会おう。";
+    empty.textContent = "まだ何も記録されていません。";
     collectionList.append(empty);
     return;
   }

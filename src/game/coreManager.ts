@@ -87,6 +87,7 @@ interface RecentEmoji {
   url: string;
   noteUrl: string;
   cutInText: string | null;
+  cutInEmojis: Record<string, string> | undefined;
 }
 
 export class CoreManager {
@@ -99,9 +100,15 @@ export class CoreManager {
 
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
-  registerEmoji(shortcode: string, url: string, noteUrl: string, cutInText: string | null): void {
+  registerEmoji(
+    shortcode: string,
+    url: string,
+    noteUrl: string,
+    cutInText: string | null,
+    cutInEmojis: Record<string, string> | undefined,
+  ): void {
     if (BOSS_EXCLUDED_SHORTCODES.has(shortcode)) return;
-    this.recentEmojis.push({ shortcode, url, noteUrl, cutInText });
+    this.recentEmojis.push({ shortcode, url, noteUrl, cutInText, cutInEmojis });
     if (this.recentEmojis.length > MAX_RECENT_EMOJI_URLS) this.recentEmojis.shift();
   }
 
@@ -200,7 +207,7 @@ export class CoreManager {
       !flavorMode && tier !== "weak"
         ? this.findRecentEmojiWithCutInText()!
         : this.recentEmojis[this.recentEmojis.length - 1];
-    const { shortcode, url, noteUrl, cutInText } = picked;
+    const { shortcode, url, noteUrl, cutInText, cutInEmojis } = picked;
 
     // 強ボスは横方向の中心に固定して出現させる(それ以外は左右にばらけさせる)。
     const x = tier === "strong" ? canvasWidth / 2 : canvasWidth * (0.25 + Math.random() * 0.5);
@@ -228,6 +235,7 @@ export class CoreManager {
       nextRetargetAt: now + GLIDE_TIMING[tier].holdMinMs + Math.random() * GLIDE_TIMING[tier].holdRandomMs,
       noteUrl,
       cutInText,
+      cutInEmojis,
     };
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);

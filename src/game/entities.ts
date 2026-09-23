@@ -111,6 +111,8 @@ export interface Core {
   // main.ts: playCutIn参照)。使える本文が無かった場合はnull(その場合は
   // flavor.tsのランダム文言にフォールバックする)。
   cutInText: string | null;
+  // cutInText中の:shortcode:を実際の画像に差し替えるためのマップ。
+  cutInEmojis: Record<string, string> | undefined;
 }
 
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする

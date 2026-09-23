@@ -32,6 +32,9 @@ export interface EmojiOccurrence {
   // ・リプライ、またはメンションを含む(特定の相手に向けた投稿)
   // ・リアクション由来(リアクション自体には本文が無い)
   cutInText: string | null;
+  // cutInTextに含まれる:shortcode:を実際の画像に差し替えるためのマップ
+  // (main.ts: playCutIn参照)。cutInTextの出所と同じノートのemojisを使う。
+  cutInEmojis: Record<string, string> | undefined;
 }
 
 // Misskeyの絵文字記法は :shortcode: (英数字・アンダースコア・ハイフン・プラス)。
@@ -43,6 +46,7 @@ function extractFromText(
   emojis: Record<string, string> | undefined,
   noteUrl: string,
   cutInText: string | null,
+  cutInEmojis: Record<string, string> | undefined,
 ): EmojiOccurrence[] {
   if (!text || !emojis) return [];
 
@@ -50,7 +54,7 @@ function extractFromText(
   for (const match of text.matchAll(SHORTCODE_PATTERN)) {
     const shortcode = match[1];
     const url = emojis[shortcode];
-    if (url) occurrences.push({ shortcode, url, noteUrl, cutInText });
+    if (url) occurrences.push({ shortcode, url, noteUrl, cutInText, cutInEmojis });
   }
   return occurrences;
 }
@@ -59,6 +63,7 @@ function extractFromReactionEmojis(
   reactionEmojis: Record<string, string> | undefined,
   noteUrl: string,
   cutInText: string | null,
+  cutInEmojis: Record<string, string> | undefined,
 ): EmojiOccurrence[] {
   if (!reactionEmojis) return [];
   return Object.entries(reactionEmojis).map(([name, url]) => ({
@@ -66,6 +71,7 @@ function extractFromReactionEmojis(
     url,
     noteUrl,
     cutInText,
+    cutInEmojis,
   }));
 }
 
@@ -93,8 +99,8 @@ export function extractEmojiOccurrences(note: MisskeyNote, host: string): EmojiO
   const noteUrl = buildNoteUrl(host, note.id);
   const cutInText = buildCutInText(note.text, note.replyId);
   const occurrences = [
-    ...extractFromText(note.text, note.emojis, noteUrl, cutInText),
-    ...extractFromReactionEmojis(note.reactionEmojis, noteUrl, cutInText),
+    ...extractFromText(note.text, note.emojis, noteUrl, cutInText, note.emojis),
+    ...extractFromReactionEmojis(note.reactionEmojis, noteUrl, cutInText, note.emojis),
   ];
 
   // 単純リノートはtext/cwがnullで、本文の中身はnote.renoteに入っている
@@ -105,8 +111,8 @@ export function extractEmojiOccurrences(note: MisskeyNote, host: string): EmojiO
     const renoteUrl = buildNoteUrl(host, note.renote.id);
     const renoteCutInText = buildCutInText(note.renote.text, note.renote.replyId);
     occurrences.push(
-      ...extractFromText(note.renote.text, note.renote.emojis, renoteUrl, renoteCutInText),
-      ...extractFromReactionEmojis(note.renote.reactionEmojis, renoteUrl, renoteCutInText),
+      ...extractFromText(note.renote.text, note.renote.emojis, renoteUrl, renoteCutInText, note.renote.emojis),
+      ...extractFromReactionEmojis(note.renote.reactionEmojis, renoteUrl, renoteCutInText, note.renote.emojis),
     );
   }
 

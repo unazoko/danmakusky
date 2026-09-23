@@ -32,6 +32,9 @@ export interface MisskeyUserLite {
   username: string;
   name: string | null;
   host: string | null;
+  // 表示名中のカスタム絵文字ショートコード→絶対URL(note.emojisと同じく
+  // サーバー側で解決済み、UserEntityService.ts参照)。
+  emojis?: Record<string, string>;
 }
 
 export interface MisskeyNote {
@@ -61,9 +64,11 @@ export interface CustomEmojiReaction {
   shortcode: string;
   url: string;
   noteUrl: string;
-  // リアクション自体には本文が無く取得しようもないため常にnull
-  // (EmojiOccurrence.cutInText参照)。
+  // リアクション自体には本文が無く取得しようもないため、ReactionTracker側で
+  // 追跡開始時に先読みしたキャッシュから埋め込まれるまではnull/undefined
+  // (EmojiOccurrence.cutInText/cutInEmojis参照、reactionTracker.ts参照)。
   cutInText: string | null;
+  cutInEmojis: Record<string, string> | undefined;
 }
 
 // ノートの永続リンク。ローカル/リモートを問わず、そのノートを受信した
@@ -249,6 +254,7 @@ export class MisskeyStream {
       url: reacted.emoji.url,
       noteUrl: buildNoteUrl(this.host, body.id),
       cutInText: null,
+      cutInEmojis: undefined,
     });
   }
 
