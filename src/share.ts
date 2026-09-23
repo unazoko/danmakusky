@@ -15,11 +15,11 @@ export interface ShareResultInput {
   causeShortcode: string | null;
 }
 
-// 被撃墜理由はカスタム絵文字のショートコードを:shortcode:記法ではなくそのままの
-// 単語として載せる。共有先はユーザーが選ぶ任意のインスタンスであり、その
-// インスタンスに同名のカスタム絵文字が存在するとは限らないため、:shortcode:の
-// まま埋め込むと未解決のまま表示されてしまう(投稿先に依存しないプレーン
-// テキストとして扱う)。
+// 被撃墜理由は:shortcode:記法のまま埋め込む。共有先はユーザーが選ぶ任意の
+// インスタンスであり、そのインスタンスに同名のカスタム絵文字が無ければ
+// 単に:shortcode:という文字列のまま表示されるだけ(ゲーム的な不都合はない)。
+// それより、投稿先にたまたま同名の絵文字があれば実際にレンダリングされて
+// 面白い、というビジュアル面のメリットを優先する。
 export function buildShareText(input: ShareResultInput): string {
   const cause = input.causeShortcode ?? "不明";
   return [
