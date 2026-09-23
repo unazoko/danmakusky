@@ -30,7 +30,7 @@ interface TierConfig {
 // 中: 水平往復移動・最大2体・弱よりHP高め・螺旋/同心円弾幕
 // 強: 横方向の中心に固定・最大1体・HPが一番高い・攻撃も一番激しい
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
-  weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.1 },
+  weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.2 },
   mid: { maxHp: 110, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.5 },
   strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: false, spawnWeight: 8, attackIntervalMs: 500, lifeUpDropChance: 1 },
 };

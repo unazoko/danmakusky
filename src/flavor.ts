@@ -163,6 +163,7 @@ const CUT_IN_QUOTES: Record<CoreTier, readonly string[]> = {
     "乗るしかない、このビッグウェーブに",
     "初カキコ…ども…",
     "あれはカスタムだ、私がそう判断した",
+    "逃げちゃダメだ",
   ],
   strong: [
     "覚悟した方がいい",
@@ -171,7 +172,7 @@ const CUT_IN_QUOTES: Record<CoreTier, readonly string[]> = {
     "逃げたら一つ、進めば...",
     "この戦いに意味はない",
     "意味はないが、負けるわけにはいかない",
-    "文明の鉄槌を叩き込んでやれ！",
+    "文明の鉄槌を叩き込んでやる！",
   ],
 };
 export function randomCutInQuote(tier: CoreTier): string {

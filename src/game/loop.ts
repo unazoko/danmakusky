@@ -27,9 +27,12 @@ const PLAYER_BULLET_SPEED = 420;
 const PLAYER_BULLET_RADIUS = 4;
 const PLAYER_BULLET_DAMAGE = 1;
 // 自機弾の連射間隔(東方のZキー連射相当)。
-const PLAYER_FIRE_INTERVAL_MS = 120;
+const PLAYER_FIRE_INTERVAL_MS = 120
+
+// 4連ガトリング
+const PLAYER_SHOT_OFFSETS_PX = [-21, -7, 7, 21];
 // 3連ガトリング
-const PLAYER_SHOT_OFFSETS_PX = [-14, 0, 14];
+// const PLAYER_SHOT_OFFSETS_PX = [-14, 0, 14];
 // 2連ガトリング
 // const PLAYER_SHOT_OFFSETS_PX = [-8, 8];
 
