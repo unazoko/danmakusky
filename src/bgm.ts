@@ -19,6 +19,9 @@ const PAUSED_VOLUME = 0.08;
 let current: HTMLAudioElement | null = null;
 // ミュート中でも「本来鳴らすべき音量」は覚えておき、ミュート解除時に復元する。
 let targetVolume = NORMAL_VOLUME;
+// タブが非表示になった瞬間、実際に再生中だったかどうか(visibilitychange
+// ハンドラ参照)。
+let wasPlayingBeforeHide = false;
 
 function applyVolume(): void {
   if (!current) return;
@@ -45,6 +48,7 @@ export function stopBgm(): void {
   current.pause();
   current.currentTime = 0;
   current = null;
+  wasPlayingBeforeHide = false;
 }
 
 // PAUSE中は音量を下げ、再開したら元に戻す。再生自体は止めない
@@ -54,3 +58,25 @@ export function setBgmPaused(paused: boolean): void {
   targetVolume = paused ? PAUSED_VOLUME : NORMAL_VOLUME;
   applyVolume();
 }
+
+// タブが非表示(別タブを見ている・スマホの画面offなど)の間は再生を
+// 完全に止め、戻ってきたら(元々鳴っていた場合のみ)再開する。無課金版
+// YouTube等と同じ、画面を見ていない間は音を鳴らし続けないという方針。
+// PAUSE中の音量ダッキング(setBgmPaused)とは独立した、実際の再生/停止
+// レイヤーの制御なので、両者は競合しない。
+function pauseForVisibility(): void {
+  if (!current || current.paused) return;
+  wasPlayingBeforeHide = true;
+  current.pause();
+}
+
+function resumeForVisibility(): void {
+  if (!current || !wasPlayingBeforeHide) return;
+  wasPlayingBeforeHide = false;
+  current.play().catch(() => {});
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pauseForVisibility();
+  else resumeForVisibility();
+});
