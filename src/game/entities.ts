@@ -76,13 +76,20 @@ export interface Core {
   spriteSize: number;
   hitRadius: number;
   img: HTMLImageElement;
-  // 移動パターン用の状態(弱=左右の正弦波の位相・中央x、中=水平往復の中心x)。
-  moveAngle: number;
-  moveOriginX: number;
   spawnedAt: number;
   nextAttackAt: number;
   // 螺旋・連続回転攻撃用に積み上げていく角度(移動角とは別管理)。
   attackAngle: number;
+  // 螺旋のように複数ティックにまたがって発生点の一貫性が必要なパターンを
+  // 撃っている間、移動を止めるためのフラグ(coreManager.ts参照)。
+  frozenForPattern: boolean;
+  // 「ある地点へなめらかに移動→そこで静止して攻撃→また別の地点へ移動」を
+  // 繰り返す(東方のボスの動き方を再現するための状態、coreManager.ts参照)。
+  moveTargetX: number;
+  moveGlideFromX: number;
+  moveGlideStartedAt: number;
+  moveGlideDurationMs: number;
+  nextRetargetAt: number;
 }
 
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする
