@@ -14,11 +14,14 @@
 // 含まれない(取りこぼす)。今後リアルタイムに付くリアクションは別途
 // reactionTracker.ts(subNote購読)で拾っているので、これはあくまで
 // 「受信した瞬間、既に付いていた分」の穴埋め。
-import { parseReactionShortcode, type MisskeyNote } from "./misskeyStream.js";
+import { buildNoteUrl, parseReactionShortcode, type MisskeyNote } from "./misskeyStream.js";
 
 export interface EmojiOccurrence {
   shortcode: string;
   url: string;
+  // この絵文字の出所となったノートの永続リンク。結果画面の
+  // 「ノートを見る」ボタン向け(main.ts参照)。
+  noteUrl: string;
 }
 
 // Misskeyの絵文字記法は :shortcode: (英数字・アンダースコア・ハイフン・プラス)。
@@ -28,6 +31,7 @@ const SHORTCODE_PATTERN = /:([a-zA-Z0-9_+-]+):/g;
 function extractFromText(
   text: string | null | undefined,
   emojis: Record<string, string> | undefined,
+  noteUrl: string,
 ): EmojiOccurrence[] {
   if (!text || !emojis) return [];
 
@@ -35,34 +39,39 @@ function extractFromText(
   for (const match of text.matchAll(SHORTCODE_PATTERN)) {
     const shortcode = match[1];
     const url = emojis[shortcode];
-    if (url) occurrences.push({ shortcode, url });
+    if (url) occurrences.push({ shortcode, url, noteUrl });
   }
   return occurrences;
 }
 
 function extractFromReactionEmojis(
   reactionEmojis: Record<string, string> | undefined,
+  noteUrl: string,
 ): EmojiOccurrence[] {
   if (!reactionEmojis) return [];
   return Object.entries(reactionEmojis).map(([name, url]) => ({
     shortcode: parseReactionShortcode(name),
     url,
+    noteUrl,
   }));
 }
 
-export function extractEmojiOccurrences(note: MisskeyNote): EmojiOccurrence[] {
+export function extractEmojiOccurrences(note: MisskeyNote, host: string): EmojiOccurrence[] {
+  const noteUrl = buildNoteUrl(host, note.id);
   const occurrences = [
-    ...extractFromText(note.text, note.emojis),
-    ...extractFromReactionEmojis(note.reactionEmojis),
+    ...extractFromText(note.text, note.emojis, noteUrl),
+    ...extractFromReactionEmojis(note.reactionEmojis, noteUrl),
   ];
 
   // 単純リノートはtext/cwがnullで、本文の中身はnote.renoteに入っている
   // (misskeyStream.ts参照)。引用リノートは自分のtextに加えて元投稿の
-  // 内容も持つため、両方から拾う。
+  // 内容も持つため、両方から拾う。この場合の「出所ノート」は元投稿自身
+  // (note.renote)なので、リンクもそちらのURLにする。
   if (note.renote) {
+    const renoteUrl = buildNoteUrl(host, note.renote.id);
     occurrences.push(
-      ...extractFromText(note.renote.text, note.renote.emojis),
-      ...extractFromReactionEmojis(note.renote.reactionEmojis),
+      ...extractFromText(note.renote.text, note.renote.emojis, renoteUrl),
+      ...extractFromReactionEmojis(note.renote.reactionEmojis, renoteUrl),
     );
   }
 

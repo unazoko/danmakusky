@@ -55,6 +55,10 @@ export interface Bullet {
   dead?: boolean;
   // GRAZE(ニアミス)判定済みかどうか。同じ弾で何度も加点されないようにする。
   grazed?: boolean;
+  // この弾の元になった投稿の永続リンク。結果画面の「ノートを見る」ボタン用
+  // (main.ts参照)。コア(ボス)の攻撃弾は、そのコアが出現するきっかけと
+  // なった投稿のリンクを引き継ぐ(coreManager.ts参照)。
+  noteUrl: string | null;
 }
 
 // コアの強さの階級。
@@ -90,6 +94,9 @@ export interface Core {
   moveGlideStartedAt: number;
   moveGlideDurationMs: number;
   nextRetargetAt: number;
+  // このコアの出現きっかけとなった投稿の永続リンク(結果画面の
+  // 「ノートを見る」ボタン用。Bullet.noteUrl参照)。
+  noteUrl: string | null;
 }
 
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする
@@ -122,6 +129,8 @@ export interface Laser {
   // GRAZE(ニアミス)判定済みかどうか。発射中に何度もかすっても1回だけ
   // 加点するためのフラグ(Bullet.grazedと同じ考え方)。
   grazed?: boolean;
+  // Bullet.noteUrlと同じ(このレーザーを撃ったコアの出所ノートへのリンク)。
+  noteUrl: string | null;
 }
 
 let nextBulletId = 1;

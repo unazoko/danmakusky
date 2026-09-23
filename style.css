@@ -1162,6 +1162,21 @@ body::before {
     color: #8fa3ad;
     font-style: italic;
 }
+/* 死因の元投稿を見るボタン。検死レポート風の枠の中に収まる控えめな
+   補助アクションなので、下の主要ボタン群(.result-buttons)より小さく
+   目立たない見た目にする。 */
+.view-note-button {
+    margin-top: 4px;
+    background: transparent;
+    color: #8fa3ad;
+    border: 1px solid rgba(143, 163, 173, 0.4);
+    padding: 4px 12px;
+    font: inherit;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    cursor: pointer;
+}
 /* スコア類は個別に浮かせず、区切り線入りの1本のステータスバーにする。 */
 .result-stats {
     display: flex;

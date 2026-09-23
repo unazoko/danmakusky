@@ -94,7 +94,7 @@ export class BulletSpawner {
       // 残機回復弾は捕まえられるよう、単純な直線(ほぼ真下)にする。
       const v = { vx: (Math.random() - 0.5) * 30, vy: 70 + Math.random() * 30 };
       bullets.push(
-        makeBullet(img, occurrence.shortcode, origin, v, { kind: "linear" }, ctx.now, true),
+        makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now, true),
       );
       return;
     }
@@ -103,37 +103,37 @@ export class BulletSpawner {
     if (bonus > 0 || roll < 0.12) {
       const spiralOffset = (ctx.now / 300) % (Math.PI * 2);
       for (const v of circularBurst(6 + bonus, spiralOffset)) {
-        bullets.push(makeBullet(img, occurrence.shortcode, origin, v, { kind: "linear" }, ctx.now));
+        bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now));
       }
       return;
     }
 
     if (roll < 0.30) {
       const v = aimedBullet(origin.x, origin.y, ctx.playerX, ctx.playerY);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, v, { kind: "linear" }, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now));
     } else if (roll < 0.45) {
       const v = straightBullet();
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, v, { kind: "linear" }, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now));
     } else if (roll < 0.58) {
       const m = homingMotion(origin.x, origin.y, ctx.playerX, ctx.playerY);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     } else if (roll < 0.70) {
       const m = orbitMotion(origin.x, origin.y);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     } else if (roll < 0.82) {
       const m = zigzagMotion(ctx.now);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     } else if (roll < 0.91) {
       const m = redirectMotion(ctx.now);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     } else if (roll < 0.96) {
       const angle = Math.random() * Math.PI; // 停止後、下向き半円のどこかへ加速
       const m = delayedAccelMotion(ctx.now, angle);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     } else {
       const angle = Math.random() * Math.PI;
       const m = splitterMotion(ctx.now, angle);
-      bullets.push(makeBullet(img, occurrence.shortcode, origin, m, m.behavior, ctx.now));
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
     }
   }
 
@@ -148,6 +148,7 @@ export class BulletSpawner {
 function makeBullet(
   img: HTMLImageElement,
   shortcode: string,
+  noteUrl: string,
   origin: { x: number; y: number },
   v: Velocity,
   behavior: Bullet["behavior"],
@@ -167,6 +168,7 @@ function makeBullet(
     spawnedAt: now,
     behavior,
     isLifeUp,
+    noteUrl,
   };
 }
 

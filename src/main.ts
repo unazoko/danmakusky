@@ -85,6 +85,7 @@ const highScoreLine = $<HTMLParagraphElement>("#highScoreLine");
 const backToTitleButton = $<HTMLButtonElement>("#backToTitleButton");
 const retryButton = $<HTMLButtonElement>("#retryButton");
 const shareButton = $<HTMLButtonElement>("#shareButton");
+const viewNoteButton = $<HTMLButtonElement>("#viewNoteButton");
 const densityWarning = $<HTMLDivElement>("#densityWarning");
 const bootSequence = $<HTMLDivElement>("#bootSequence");
 const fireButton = $<HTMLButtonElement>("#fireButton");
@@ -418,6 +419,8 @@ function showGameOver(info: GameOverInfo): void {
   shortcodeLabel.textContent = info.causeShortcode ?? "??? (不明)";
   gameOverCause.append(shortcodeLabel);
 
+  viewNoteButton.hidden = !info.causeNoteUrl;
+
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
   resultGraze.textContent = info.grazeCount.toLocaleString();
@@ -585,7 +588,7 @@ function startGame(host: string): void {
       // 付きうるので、そちらも合わせて追跡する。
       if (note.renote) reactionTracker?.track(note.renote.id);
 
-      const occurrences = extractEmojiOccurrences(note);
+      const occurrences = extractEmojiOccurrences(note, host);
       if (occurrences.length === 0) return;
       for (const o of occurrences) {
         recordEmojiEncounter(o.shortcode, o.url);
@@ -922,6 +925,18 @@ clearDataConfirmButton.onclick = () => {
   clearHighScore();
   clearCollection();
   clearDataOverlay.hidden = true;
+};
+
+// 外部サイト(自分を撃墜した投稿)を開く前に、必ず確認ダイアログを挟む
+// (無言でよそのサイトへ連れて行かれると驚かれるため)。
+viewNoteButton.onclick = () => {
+  const url = lastGameOverInfo?.causeNoteUrl;
+  if (!url) return;
+  const confirmed = window.confirm(
+    `あなたを撃墜したノートを見ますか?(外部サイトが開きます)\nURL: ${url}`,
+  );
+  if (!confirmed) return;
+  window.open(url, "_blank", "noopener");
 };
 
 // 投稿は必ずこのボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。

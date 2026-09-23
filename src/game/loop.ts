@@ -57,6 +57,9 @@ export interface GameOverInfo {
   survivedMs: number;
   causeShortcode: string | null;
   causeImg: HTMLImageElement | null;
+  // 撃墜した弾/レーザーの出所ノートへの永続リンク(結果画面の
+  // 「ノートを見る」ボタン用、main.ts参照)。取れない場合はnull。
+  causeNoteUrl: string | null;
   grazeCount: number;
 }
 
@@ -86,6 +89,7 @@ export class GameState {
   private bonusScore = 0;
   private causeShortcode: string | null = null;
   private causeImg: HTMLImageElement | null = null;
+  private causeNoteUrl: string | null = null;
   private readonly startedAt: number;
   private readonly spawner = new BulletSpawner();
   private readonly coreManager = new CoreManager();
@@ -128,7 +132,7 @@ export class GameState {
       playerY: this.player.y,
     };
     for (const occurrence of occurrences) {
-      this.coreManager.registerEmoji(occurrence.shortcode, occurrence.url);
+      this.coreManager.registerEmoji(occurrence.shortcode, occurrence.url, occurrence.noteUrl);
       this.spawner.trySpawnFromOccurrence(occurrence, ctx, this.bullets);
     }
   }
@@ -324,19 +328,25 @@ export class GameState {
       return;
     }
 
-    this.applyDamage(bullet.shortcode, bullet.img, now);
+    this.applyDamage(bullet.shortcode, bullet.img, bullet.noteUrl, now);
   }
 
   // レーザーは弾のように配列から取り除く対象が無い(発射が終わるまで
   // 存在し続ける)以外はダメージ弾と同じ扱いにする。
   private handleLaserHit(laser: Laser, now: number): void {
-    this.applyDamage(laser.shortcode, laser.img, now);
+    this.applyDamage(laser.shortcode, laser.img, laser.noteUrl, now);
   }
 
-  private applyDamage(shortcode: string, img: HTMLImageElement, now: number): void {
+  private applyDamage(
+    shortcode: string,
+    img: HTMLImageElement,
+    noteUrl: string | null,
+    now: number,
+  ): void {
     this.life -= 1;
     this.causeShortcode = shortcode || "不明";
     this.causeImg = img;
+    this.causeNoteUrl = noteUrl;
     this.player.invincibleUntil = now + INVINCIBLE_MS;
     this.listeners.onLifeChange?.(this.life);
 
@@ -347,6 +357,7 @@ export class GameState {
         survivedMs: this.survivedMs(now),
         causeShortcode: this.causeShortcode,
         causeImg: this.causeImg,
+        causeNoteUrl: this.causeNoteUrl,
         grazeCount: this.grazeCount,
       });
     }

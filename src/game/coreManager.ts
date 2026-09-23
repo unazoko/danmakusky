@@ -83,6 +83,7 @@ export interface CoreManagerListeners {
 interface RecentEmoji {
   shortcode: string;
   url: string;
+  noteUrl: string;
 }
 
 export class CoreManager {
@@ -95,9 +96,9 @@ export class CoreManager {
 
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
-  registerEmoji(shortcode: string, url: string): void {
+  registerEmoji(shortcode: string, url: string, noteUrl: string): void {
     if (BOSS_EXCLUDED_SHORTCODES.has(shortcode)) return;
-    this.recentEmojis.push({ shortcode, url });
+    this.recentEmojis.push({ shortcode, url, noteUrl });
     if (this.recentEmojis.length > MAX_RECENT_EMOJI_URLS) this.recentEmojis.shift();
   }
 
@@ -153,6 +154,7 @@ export class CoreManager {
       spawnedAt: now,
       behavior: { kind: "linear" },
       isLifeUp: true,
+      noteUrl: core.noteUrl,
     });
   }
 
@@ -170,7 +172,7 @@ export class CoreManager {
 
     const tier = pickWeighted(eligibleTiers, (t) => TIER_CONFIG[t].spawnWeight);
     const cfg = TIER_CONFIG[tier];
-    const { shortcode, url } = this.recentEmojis[this.recentEmojis.length - 1];
+    const { shortcode, url, noteUrl } = this.recentEmojis[this.recentEmojis.length - 1];
 
     // 強ボスは横方向の中心に固定して出現させる(それ以外は左右にばらけさせる)。
     const x = tier === "strong" ? canvasWidth / 2 : canvasWidth * (0.25 + Math.random() * 0.5);
@@ -196,6 +198,7 @@ export class CoreManager {
       moveGlideStartedAt: now,
       moveGlideDurationMs: 0,
       nextRetargetAt: now + GLIDE_TIMING[tier].holdMinMs + Math.random() * GLIDE_TIMING[tier].holdRandomMs,
+      noteUrl,
     };
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);
@@ -344,6 +347,7 @@ export class CoreManager {
         hitRadius: 7,
         spawnedAt: now,
         behavior: { kind: "linear" },
+        noteUrl: core.noteUrl,
       });
     }
   }
@@ -363,6 +367,7 @@ export class CoreManager {
       stateEndsAt: now + LASER_TELEGRAPH_MS,
       shortcode: core.shortcode,
       img: core.img,
+      noteUrl: core.noteUrl,
     });
     this.nextLaserAt = now + LASER_COOLDOWN_MS;
   }

@@ -119,6 +119,7 @@ export function updateBullet(
             hitRadius: b.hitRadius,
             spawnedAt: now,
             behavior: { kind: "linear" },
+            noteUrl: b.noteUrl,
           });
         }
       } else {

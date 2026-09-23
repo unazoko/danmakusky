@@ -46,6 +46,14 @@ export interface MisskeyNote {
 export interface CustomEmojiReaction {
   shortcode: string;
   url: string;
+  noteUrl: string;
+}
+
+// ノートの永続リンク。ローカル/リモートを問わず、そのノートを受信した
+// インスタンス自身が /notes/{id} で詳細ページを表示できる(連合先の投稿の
+// コピーを保持しているため)。
+export function buildNoteUrl(host: string, noteId: string): string {
+  return `https://${host}/notes/${noteId}`;
 }
 
 export type StreamStatus =
@@ -222,6 +230,7 @@ export class MisskeyStream {
     subscriber({
       shortcode: parseReactionShortcode(reacted.emoji.name),
       url: reacted.emoji.url,
+      noteUrl: buildNoteUrl(this.host, body.id),
     });
   }
 
