@@ -20,7 +20,7 @@ export interface EmojiOccurrence {
   shortcode: string;
   url: string;
   // この絵文字の出所となったノートの永続リンク。結果画面の
-  // 「ノートを見る」ボタン向け(main.ts参照)。
+  // 「あなたを撃墜したノートを見る」ボタン向け(main.ts参照)。
   noteUrl: string;
 }
 

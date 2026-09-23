@@ -65,7 +65,7 @@ export interface Bullet {
   dead?: boolean;
   // GRAZE(ニアミス)判定済みかどうか。同じ弾で何度も加点されないようにする。
   grazed?: boolean;
-  // この弾の元になった投稿の永続リンク。結果画面の「ノートを見る」ボタン用
+  // この弾の元になった投稿の永続リンク。結果画面の「あなたを撃墜したノートを見る」ボタン用
   // (main.ts参照)。コア(ボス)の攻撃弾は、そのコアが出現するきっかけと
   // なった投稿のリンクを引き継ぐ(coreManager.ts参照)。
   noteUrl: string | null;
@@ -105,7 +105,7 @@ export interface Core {
   moveGlideDurationMs: number;
   nextRetargetAt: number;
   // このコアの出現きっかけとなった投稿の永続リンク(結果画面の
-  // 「ノートを見る」ボタン用。Bullet.noteUrl参照)。
+  // 「あなたを撃墜したノートを見る」ボタン用。Bullet.noteUrl参照)。
   noteUrl: string | null;
 }
 

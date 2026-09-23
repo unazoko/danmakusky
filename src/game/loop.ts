@@ -58,7 +58,7 @@ export interface GameOverInfo {
   causeShortcode: string | null;
   causeImg: HTMLImageElement | null;
   // 撃墜した弾/レーザーの出所ノートへの永続リンク(結果画面の
-  // 「ノートを見る」ボタン用、main.ts参照)。取れない場合はnull。
+  // 「あなたを撃墜したノートを見る」ボタン用、main.ts参照)。取れない場合はnull。
   causeNoteUrl: string | null;
   grazeCount: number;
 }
