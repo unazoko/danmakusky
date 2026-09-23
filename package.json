@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "lucide-static": "^1.47.0",
-    "marked": "^18.0.13"
+    "marked": "^18.0.13",
+    "mfm-js": "^0.26.0"
   }
 }

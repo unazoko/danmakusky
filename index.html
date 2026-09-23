@@ -173,6 +173,14 @@
       <button id="pauseButton" type="button" aria-label="一時停止">
         <span id="pauseButtonIcon" class="btn-icon"></span>
       </button>
+      <button id="commentTickerToggleButton" type="button" aria-label="連合TLコメント欄の表示/非表示"></button>
+      <div id="commentTicker" class="comment-ticker">
+        <div id="commentTickerHandle" class="comment-ticker-handle">
+          <span class="comment-ticker-handle-label">連合TL</span>
+          <button id="commentTickerCloseButton" type="button" aria-label="コメント欄を隠す"></button>
+        </div>
+        <div id="commentTickerBody" class="comment-ticker-body"></div>
+      </div>
       <div id="pauseOverlay" class="pause-overlay" hidden>
         <h2>PAUSED</h2>
         <div class="pause-buttons">

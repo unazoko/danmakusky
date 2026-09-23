@@ -14,6 +14,8 @@ import trash2 from "lucide-static/icons/trash-2.svg?raw";
 import copyright from "lucide-static/icons/copyright.svg?raw";
 import info from "lucide-static/icons/info.svg?raw";
 import chevronDown from "lucide-static/icons/chevron-down.svg?raw";
+import messageSquare from "lucide-static/icons/message-square.svg?raw";
+import messageSquareOff from "lucide-static/icons/message-square-off.svg?raw";
 
 const ICONS = {
   "book-open": bookOpen,
@@ -29,6 +31,8 @@ const ICONS = {
   copyright,
   info,
   "chevron-down": chevronDown,
+  "message-square": messageSquare,
+  "message-square-off": messageSquareOff,
 } as const;
 
 export type IconName = keyof typeof ICONS;

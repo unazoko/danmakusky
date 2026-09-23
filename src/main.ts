@@ -25,6 +25,7 @@ import {
   type CollectionEntry,
 } from "./emojiCollection.js";
 import { Starfield } from "./starfield.js";
+import { initCommentTicker, pushNoteToTicker, resetCommentTicker } from "./commentTicker.js";
 import { playRandomBgm, stopBgm, setBgmPaused } from "./bgm.js";
 import { isMuted, toggleMuted, onMuteChange } from "./audioSettings.js";
 import { createIcon } from "./icons.js";
@@ -112,6 +113,7 @@ aboutButtonIcon.append(createIcon("info"));
 licenseToggleIcon.append(createIcon("copyright"));
 licenseChevronIcon.append(createIcon("chevron-down"));
 clearDataButtonIcon.append(createIcon("trash-2"));
+initCommentTicker();
 // 一時停止ボタンだけは状態(再生中/一時停止中)に応じてアイコンを切り替える
 // (初期状態は必ず再生中なので、ここでは固定でpauseアイコンを入れておく。
 // 以後の切り替えはpauseGame/resumeGame側のupdatePauseButtonIcon呼び出しで行う)。
@@ -568,6 +570,7 @@ function startGame(host: string): void {
   gameSessionActive = true;
   playerEmojiChosen = false;
   pendingOccurrences = [];
+  resetCommentTicker();
   currentStreamStatus = "connecting";
   paused = false;
   pauseAccumulatedMs = 0;
@@ -587,6 +590,8 @@ function startGame(host: string): void {
       // リノートの場合、リノート自体だけでなく元投稿の方にもリアクションが
       // 付きうるので、そちらも合わせて追跡する。
       if (note.renote) reactionTracker?.track(note.renote.id);
+
+      pushNoteToTicker(note);
 
       const occurrences = extractEmojiOccurrences(note, host);
       if (occurrences.length === 0) return;
