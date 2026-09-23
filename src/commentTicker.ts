@@ -172,6 +172,13 @@ function wireDrag(): void {
   let originY = 0;
 
   handle.addEventListener("pointerdown", (e) => {
+    // 閉じるボタン(handleの子要素、中のアイコンSVGも含む)の上から始まった
+    // 場合はドラッグ扱いにしない。ここでsetPointerCapture()するとボタンへの
+    // 後続のclickが(PCのマウス操作では)握っているhandle側に奪われてしまい、
+    // 閉じるボタンが効かなくなる不具合があった(タッチ操作では偶然影響
+    // しなかった)。e.targetはアイコンSVG(ボタンの子要素)になりうるため、
+    // 単純な===ではなくcontains()で判定する。
+    if (e.target instanceof Node && closeButton.contains(e.target)) return;
     dragging = true;
     handle.setPointerCapture(e.pointerId);
     startX = e.clientX;
