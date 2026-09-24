@@ -1624,3 +1624,8 @@ body::before {
 #shareXButton {
     width: 115px;
 }
+/* Blueskyの公式ブランドカラー(#006aff)を枠線・背景に使う。 */
+#shareBlueskyButton {
+    background: rgba(0, 106, 255, 0.14);
+    border-color: rgba(0, 106, 255, 0.8);
+}
