@@ -785,6 +785,27 @@ body::before {
     border: 1px solid rgba(124, 247, 255, 0.5);
     box-shadow: 0 0 24px rgba(124, 247, 255, 0.25);
 }
+/* 撃墜時の白フラッシュ。普段はopacity:0で無害、.flashクラス付与時だけ
+   一瞬白く光って消える(main.ts: triggerDeathEffect参照)。 */
+.death-flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 500;
+}
+.death-flash.flash {
+    animation: death-flash-anim 0.45s ease-out;
+}
+@keyframes death-flash-anim {
+    0% {
+        opacity: 0.95;
+    }
+    100% {
+        opacity: 0;
+    }
+}
 .hud {
     position: absolute;
     top: 8px;
