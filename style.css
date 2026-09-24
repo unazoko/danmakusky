@@ -877,7 +877,7 @@ body::before {
    難易度計算には一切使われていない。 */
 .hud-fake {
     font-size: 0.65rem;
-    color: #3d5560;
+    color: #56707c;
     letter-spacing: 0.03em;
 }
 

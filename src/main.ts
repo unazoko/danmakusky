@@ -91,7 +91,7 @@ const gameOverCause = $<HTMLParagraphElement>("#gameOverCause");
 const resultScore = $<HTMLElement>("#resultScore");
 const resultTime = $<HTMLElement>("#resultTime");
 const resultGraze = $<HTMLElement>("#resultGraze");
-const resultPeakRateValue = $<HTMLElement>("#resultPeakRateValue");
+const resultMaxRateValue = $<HTMLElement>("#resultMaxRateValue");
 const hudGraze = $<HTMLSpanElement>("#hudGraze");
 const hudScoreBonus = $<HTMLSpanElement>("#hudScoreBonus");
 const highScoreLine = $<HTMLParagraphElement>("#highScoreLine");
@@ -714,7 +714,7 @@ function showGameOver(info: GameOverInfo): void {
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
   resultGraze.textContent = info.grazeCount.toLocaleString();
-  resultPeakRateValue.textContent = (noteRateTracker?.getMaxRatePerMinute() ?? 0).toLocaleString();
+  resultMaxRateValue.textContent = (noteRateTracker?.getMaxRatePerMinute() ?? 0).toLocaleString();
 
   const isNewHighScore = updateHighScore(info.score);
   highScoreLine.textContent = isNewHighScore
