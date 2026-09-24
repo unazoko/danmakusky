@@ -784,6 +784,27 @@ body::before {
        境界を分かるようにする(HUD等と同じシアン系で統一)。 */
     border: 1px solid rgba(124, 247, 255, 0.5);
     box-shadow: 0 0 24px rgba(124, 247, 255, 0.25);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+/* 残機が残り1になったときの警告表示(main.ts: renderLifeHearts参照)。
+   静止した赤ではなく、グローがゆっくり明滅する点滅にする。 */
+#gameCanvas.low-life {
+    animation: low-life-pulse 1.4s ease-in-out infinite;
+}
+@keyframes low-life-pulse {
+    0%,
+    100% {
+        border-color: rgba(255, 110, 110, 0.55);
+        box-shadow:
+            0 0 16px rgba(255, 110, 110, 0.2),
+            inset 0 0 16px rgba(255, 110, 110, 0.15);
+    }
+    50% {
+        border-color: rgba(255, 110, 110, 0.95);
+        box-shadow:
+            0 0 34px rgba(255, 110, 110, 0.6),
+            inset 0 0 34px rgba(255, 110, 110, 0.45);
+    }
 }
 /* 撃墜時の白フラッシュ。普段はopacity:0で無害、.flashクラス付与時だけ
    一瞬白く光って消える(main.ts: triggerDeathEffect参照)。 */

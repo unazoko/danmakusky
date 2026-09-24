@@ -224,6 +224,9 @@ function renderLifeHearts(life: number): void {
   const empty = "♡".repeat(Math.max(INITIAL_LIFE - life, 0));
   const maxLabel = life >= INITIAL_LIFE ? " MAX" : "";
   hudLife.textContent = `LIFE ${filled}${empty}${maxLabel}`;
+  // 残機が残り1になったら、プレイ画面の枠線を赤にして警告する。
+  // 撃墜(life===0)でも赤いまま(=シアンに戻さない)にしたいのでlife<=1で判定する。
+  canvas.classList.toggle("low-life", life <= 1);
 }
 
 const STATUS_LABELS: Record<StreamStatus, string> = {
