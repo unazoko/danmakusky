@@ -45,7 +45,11 @@ export type BulletBehavior =
   | { kind: "pulse"; baseAngle: number; baseSpeed: number; amplitude: number; angularFreq: number; startedAt: number }
   // 発生時はゆっくりだが、飛んでいる間ずっと加速し続ける(上限あり)。
   // 見た目の速度から予測して避けると急加速に間に合わなくなる、油断させる弾。
-  | { kind: "accel"; angle: number; speed: number; accelPxPerSec2: number; maxSpeed: number };
+  | { kind: "accel"; angle: number; speed: number; accelPxPerSec2: number; maxSpeed: number }
+  // 指定時刻までは現在の速度のまま飛び、それ以降は自機を追い続ける
+  // (中・強ボス撃破時の残機回復弾用。redirectと違い、トリガー後も
+  // プレイヤーの動きに追従し続ける)。
+  | { kind: "delayedHoming"; triggerAt: number; speed: number; turnRateRadPerSec: number; triggered: boolean };
 
 export interface Bullet {
   id: number;
@@ -117,6 +121,11 @@ export interface Core {
   cutInText: string | null;
   // cutInText中の:shortcode:を実際の画像に差し替えるためのマップ。
   cutInEmojis: Record<string, string> | undefined;
+  // 中ボスのみ設定される自動消滅時刻(撃破扱いにはしない、coreManager.ts参照)。
+  // 未設定(undefined)なら自動消滅しない。
+  expiresAt?: number;
+  // 自動消滅の直前、フワッとフェードアウトを始める時刻(render.ts参照)。
+  fadeOutStartsAt?: number;
 }
 
 // 「群れ」敵(coreManager.ts/swarmManager.ts参照)。弱・中・強のコアとは別枠の

@@ -200,9 +200,23 @@ const TIER_RING_COLOR: Record<Core["tier"], string> = {
   strong: "rgba(255, 110, 110, 0.85)",
 };
 
+// 中ボスの自動消滅直前(fadeOutStartsAt〜expiresAt)だけフワッとフェード
+// アウトするアルファ値。対象外(fadeOutStartsAt/expiresAt未設定)は常に1。
+function coreAlpha(core: Core, now: number): number {
+  if (core.fadeOutStartsAt === undefined || core.expiresAt === undefined) return 1;
+  if (now <= core.fadeOutStartsAt) return 1;
+  const span = Math.max(core.expiresAt - core.fadeOutStartsAt, 1);
+  return Math.max(0, Math.min(1, (core.expiresAt - now) / span));
+}
+
 // コア(Misskeyの投稿流を弾幕として放つボス役)と、その上のHPバーを描画する。
 // 階級(弱/中/強)ごとに縁取りの色を変え、見た目でも区別できるようにする。
-export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
+export function drawCore(ctx: CanvasRenderingContext2D, core: Core, now: number): void {
+  const alpha = coreAlpha(core, now);
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
   ctx.beginPath();
   ctx.arc(core.x, core.y, core.spriteSize / 2 + 4, 0, Math.PI * 2);
   ctx.strokeStyle = TIER_RING_COLOR[core.tier];
@@ -234,6 +248,8 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
   ctx.fillRect(barX, barY, barWidth, barHeight);
   ctx.fillStyle = ratio > 0.3 ? "#7cf7ff" : "#ff6e6e";
   ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+
+  ctx.restore();
 }
 
 const SWARMER_RING_COLOR = "rgba(255, 200, 90, 0.85)";

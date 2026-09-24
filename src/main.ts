@@ -645,7 +645,7 @@ function tick(now: number): void {
       hudFake.textContent = `DENSITY ${fakeDensityPercent(now)}% / SYNC ${fakeSyncRate(now)}% / THREAT ${fakeThreatLevel(now)}`;
     }
     // 一時停止中も、直前のフレームの状態をそのまま描画し続ける(フリーズ画面)。
-    for (const core of game.cores) drawCore(ctx, core);
+    for (const core of game.cores) drawCore(ctx, core, now);
     drawSwarmers(ctx, game.swarmers, now);
     drawSquadronUnits(ctx, game.squadronUnits);
     drawLasers(ctx, game.lasers, now);

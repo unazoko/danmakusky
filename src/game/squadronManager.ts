@@ -31,7 +31,9 @@ const SWAY_PERIOD_MS = 5000;
 // (編隊の全長+αぶんの余裕を持たせる)。
 const ENTRY_MARGIN_PX = ROW_GAP_PX * ROWS + SPRITE_SIZE * 2;
 
-const FIRE_INTERVAL_MS = 500;
+const FIRE_INTERVAL_MS = 250;
+// 攻撃弾の弾速倍率(固定、時間経過等では変化しない)。
+const BULLET_SPEED_MULTIPLIER = 2;
 
 // 編隊が全滅/画面を抜け切ってから次の編隊が出現するまでの間隔。
 const SPAWN_COOLDOWN_MIN_MS = 15000;
@@ -200,7 +202,7 @@ export class SquadronManager {
     const isLast = !this.units.some((u) => u.order > next!.order);
     this.nextFireAt = now + FIRE_INTERVAL_MS * (isLast ? 2 : 1);
 
-    // 1体につき1発のみ。同心円等の複数方向弾は撃たない。
+    // 1体につき1発のみ。同心円等の複数方向弾は撃たない。弾速は固定で2倍にする。
     const v = aimedBullet(next.x, next.y, playerX, playerY);
     bullets.push({
       id: createBulletId(),
@@ -208,8 +210,8 @@ export class SquadronManager {
       shortcode: next.shortcode,
       x: next.x,
       y: next.y,
-      vx: v.vx,
-      vy: v.vy,
+      vx: v.vx * BULLET_SPEED_MULTIPLIER,
+      vy: v.vy * BULLET_SPEED_MULTIPLIER,
       size: 20,
       hitRadius: 6,
       spawnedAt: now,

@@ -129,6 +129,27 @@ export function updateBullet(
       break;
     }
 
+    case "delayedHoming": {
+      if (!behavior.triggered && now >= behavior.triggerAt) {
+        behavior.triggered = true;
+        const angle = Math.atan2(playerY - b.y, playerX - b.x);
+        b.vx = Math.cos(angle) * behavior.speed;
+        b.vy = Math.sin(angle) * behavior.speed;
+      } else if (behavior.triggered) {
+        const targetAngle = Math.atan2(playerY - b.y, playerX - b.x);
+        const curAngle = Math.atan2(b.vy, b.vx);
+        const diff = normalizeAngle(targetAngle - curAngle);
+        const maxTurn = behavior.turnRateRadPerSec * dtSec;
+        const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
+        const newAngle = curAngle + turn;
+        b.vx = Math.cos(newAngle) * behavior.speed;
+        b.vy = Math.sin(newAngle) * behavior.speed;
+      }
+      b.x += b.vx * dtSec;
+      b.y += b.vy * dtSec;
+      break;
+    }
+
     case "splitter": {
       if (!behavior.triggered && now >= behavior.triggerAt) {
         behavior.triggered = true;

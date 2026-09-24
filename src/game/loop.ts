@@ -21,13 +21,23 @@ import { updateBullet } from "./bulletMotion.js";
 // 引き上げ、長時間生存し続ける上級者向けに終盤の難易度を明確に強める
 // (通常弾自体には触れず、コアの攻撃間隔・出現頻度にのみ効かせる、
 // coreManager.ts参照)。
-function getTimeDifficultyMultiplier(survivedMs: number): number {
+export function getTimeDifficultyMultiplier(survivedMs: number): number {
   const minutes = survivedMs / 60000;
   if (minutes < 5) return 1;
   if (minutes < 7) return 1.25;
   if (minutes < 10) return 1.75;
   if (minutes < 13) return 2.5;
   return 3.5;
+}
+
+// ボスの攻撃弾の弾速専用の倍率(攻撃間隔・出現頻度側のgetTimeDifficultyMultiplier
+// とは別の、より緩やかな段階)。10分以降は2倍で頭打ちにする。
+export function getBossBulletSpeedMultiplier(survivedMs: number): number {
+  const minutes = survivedMs / 60000;
+  if (minutes < 5) return 1;
+  if (minutes < 7) return 1.25;
+  if (minutes < 10) return 1.5;
+  return 2;
 }
 
 export const INITIAL_LIFE = 6;
@@ -213,14 +223,16 @@ export class GameState {
       },
     );
 
-    const intensity =
-      this.spawner.getStreamIntensity(now) * getTimeDifficultyMultiplier(this.survivedMs(now));
+    const survivedMs = this.survivedMs(now);
+    const intensity = this.spawner.getStreamIntensity(now) * getTimeDifficultyMultiplier(survivedMs);
+    const bulletSpeedMultiplier = getBossBulletSpeedMultiplier(survivedMs);
     this.coreManager.update(
       dtSec,
       now,
       this.canvas.width,
       this.canvas.height,
       intensity,
+      bulletSpeedMultiplier,
       this.player.x,
       this.player.y,
       this.bullets,

@@ -4,8 +4,10 @@
 // (BulletSpawner.getStreamIntensity)に加えてプレイ時間経過による倍率
 // (loop.ts: getTimeDifficultyMultiplier、5分以降で段階的に上昇)も掛けた
 // intensityでスケールし、「流速・プレイ時間が高いほど難しい」という
-// 基本コンセプトをコアの攻撃にも反映させる。
-import type { Bullet, Core, CoreTier, Laser } from "./entities.js";
+// 基本コンセプトをコアの攻撃にも反映させる。攻撃弾の弾速も、プレイ時間
+// 経過のみに基づく倍率(bulletSpeedMultiplier、intensityと違い流速は
+// 含まない)でスケールする。
+import type { Bullet, BulletBehavior, Core, CoreTier, Laser } from "./entities.js";
 import { createBulletId, createCoreId, createLaserId } from "./entities.js";
 import {
   aimedBullet,
@@ -71,6 +73,18 @@ const MID_GLIDE: GlideTiming = { glideMinMs: 700, glideRandomMs: 400, holdMinMs:
 const STRONG_GLIDE: GlideTiming = { glideMinMs: 1000, glideRandomMs: 600, holdMinMs: 2500, holdRandomMs: 2000 };
 const GLIDE_TIMING: Record<CoreTier, GlideTiming> = { weak: WEAK_GLIDE, mid: MID_GLIDE, strong: STRONG_GLIDE };
 
+// 中・強ボス撃破時の残機回復弾: 出現から一定時間はそのまま(ゆっくり)
+// 落下し、その後は自機を素早く追いかけるようにする(弱ボスはそもそも
+// 出さない、TIER_CONFIG.weak.lifeUpDropChance参照)。
+const LIFEUP_HOMING_DELAY_MS = 1000;
+const LIFEUP_HOMING_SPEED = 260;
+const LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC = Math.PI * 4;
+
+// 中ボスは倒し切れなくても20秒で自動消滅する(撃破扱いにはしない、報酬もなし)。
+// 消える直前はフワッとフェードアウトさせる(render.ts参照)。
+const MID_LIFESPAN_MS = 20000;
+const MID_FADE_MS = 300;
+
 const BASE_SPAWN_INTERVAL_MS = 4000;
 // intensityが大きくなっても攻撃間隔が0に近づいて理不尽にならないよう設ける下限。
 const MIN_ATTACK_INTERVAL_MS = 150;
@@ -125,6 +139,7 @@ export class CoreManager {
     canvasWidth: number,
     canvasHeight: number,
     intensity: number,
+    bulletSpeedMultiplier: number,
     playerX: number,
     playerY: number,
     bullets: Bullet[],
@@ -136,7 +151,7 @@ export class CoreManager {
 
     for (const core of this.cores) {
       this.updateMovement(core, dtSec, now, canvasWidth);
-      this.updateAttack(core, now, intensity, playerX, playerY, bullets);
+      this.updateAttack(core, now, intensity, bulletSpeedMultiplier, playerX, playerY, bullets);
     }
 
     const defeated = this.cores.filter((c) => c.hp <= 0);
@@ -153,12 +168,28 @@ export class CoreManager {
     this.cores = this.cores.filter(
       (c) => c.tier !== "weak" || c.y < canvasHeight + WEAK_CULL_MARGIN_PX,
     );
+
+    // 中ボスは20秒で自動消滅する(倒し切れなくても、撃破扱い・報酬なしで
+    // 静かに消える。フェードアウトの見た目はrender.ts側で処理する)。
+    this.cores = this.cores.filter((c) => c.expiresAt === undefined || now < c.expiresAt);
   }
 
   // ボスを倒すと、階級に応じた確率でその場に残機回復弾を1つ落とす
   // (弱=0%、中=50%、強=100%)。
   private dropLifeUpItem(core: Core, now: number, bullets: Bullet[]): void {
     if (Math.random() >= TIER_CONFIG[core.tier].lifeUpDropChance) return;
+    // 中・強ボスの回復弾は、2秒間はそのまま落下させた後、自機へ素早く
+    // 向かうようにする(弱ボスはlifeUpDropChance=0なのでここには来ない)。
+    const behavior: BulletBehavior =
+      core.tier === "weak"
+        ? { kind: "linear" }
+        : {
+            kind: "delayedHoming",
+            triggerAt: now + LIFEUP_HOMING_DELAY_MS,
+            speed: LIFEUP_HOMING_SPEED,
+            turnRateRadPerSec: LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC,
+            triggered: false,
+          };
     bullets.push({
       id: createBulletId(),
       img: core.img,
@@ -170,7 +201,7 @@ export class CoreManager {
       size: 26,
       hitRadius: 10,
       spawnedAt: now,
-      behavior: { kind: "linear" },
+      behavior,
       isLifeUp: true,
       noteUrl: core.noteUrl,
       isBossBullet: true,
@@ -257,6 +288,8 @@ export class CoreManager {
       noteUrl,
       cutInText,
       cutInEmojis,
+      expiresAt: tier === "mid" ? now + MID_LIFESPAN_MS : undefined,
+      fadeOutStartsAt: tier === "mid" ? now + MID_LIFESPAN_MS - MID_FADE_MS : undefined,
     };
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);
@@ -330,6 +363,7 @@ export class CoreManager {
     core: Core,
     now: number,
     intensity: number,
+    bulletSpeedMultiplier: number,
     playerX: number,
     playerY: number,
     bullets: Bullet[],
@@ -462,8 +496,10 @@ export class CoreManager {
         shortcode: core.shortcode,
         x: core.x + (v.offsetX ?? 0),
         y: core.y + (v.offsetY ?? 0),
-        vx: v.vx,
-        vy: v.vy,
+        // 時間経過による難易度上昇(loop.ts: getTimeDifficultyMultiplier)を
+        // ボスの弾速にも反映する(5分まではbulletSpeedMultiplier=1倍で無変化)。
+        vx: v.vx * bulletSpeedMultiplier,
+        vy: v.vy * bulletSpeedMultiplier,
         size: 22,
         hitRadius: 7,
         spawnedAt: now,

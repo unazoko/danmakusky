@@ -20,7 +20,7 @@ const FADE_MS = 300;
 const ATTACK_COUNT = 3;
 
 const WAVE_COUNT = 5;
-const WAVE_SPAWN_INTERVAL_MS = 600;
+const WAVE_SPAWN_INTERVAL_MS = 400;
 // 次のウェーブが発生するまでの間隔。出現中はボスの新規出現を止めてしまう
 // ため、頻発しすぎないよう長めに取る。
 const WAVE_COOLDOWN_MIN_MS = 15000;
