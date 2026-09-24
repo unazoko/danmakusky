@@ -119,6 +119,52 @@ export interface Core {
   cutInEmojis: Record<string, string> | undefined;
 }
 
+// 「群れ」敵(coreManager.ts/swarmManager.ts参照)。弱・中・強のコアとは別枠の
+// 短命な雑魚敵で、5体が連続出現し、出現後は位置を固定したまま弾幕を数回
+// 放って自動的に消える。撃墜も可能(HPは弱ボスより低い)。
+export interface Swarmer {
+  id: number;
+  shortcode: string;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  spriteSize: number;
+  hitRadius: number;
+  img: HTMLImageElement;
+  spawnedAt: number;
+  // この時刻で自動消滅する(倒されなくても)。
+  expiresAt: number;
+  // フワッと出現・消滅する演出用(render.ts参照)。
+  fadeInEndsAt: number;
+  fadeOutStartsAt: number;
+  attacksFired: number;
+  nextAttackAt: number;
+  // 同心円弾幕を撃つたびに少しずつ増やす角度(見た目が回転して見えるようにする)。
+  attackAngle: number;
+  noteUrl: string | null;
+}
+
+// 2列×8体の編隊で出現する敵(squadronManager.ts参照)。編隊全体が左右に
+// 旋回するように揺れながら、前(row=0)から順に1体ずつ自機狙いの弾を撃つ。
+// 1体ごとのHPは低く、容易に撃墜できる。
+export interface SquadronUnit {
+  id: number;
+  shortcode: string;
+  img: HTMLImageElement;
+  noteUrl: string | null;
+  col: number;
+  row: number;
+  // 前から順に発射する順番を決めるための通し番号(row優先、col次点)。
+  order: number;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  spriteSize: number;
+  hitRadius: number;
+}
+
 // 自機が撃つ弾。見た目は絵文字ではなく単純な光弾にする
 // (画面上の大量の絵文字弾と見分けやすくするため)。
 export interface PlayerBullet {
@@ -166,4 +212,14 @@ export function createCoreId(): number {
 let nextLaserId = 1;
 export function createLaserId(): number {
   return nextLaserId++;
+}
+
+let nextSwarmerId = 1;
+export function createSwarmerId(): number {
+  return nextSwarmerId++;
+}
+
+let nextSquadronUnitId = 1;
+export function createSquadronUnitId(): number {
+  return nextSquadronUnitId++;
 }

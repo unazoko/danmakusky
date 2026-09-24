@@ -128,9 +128,10 @@ export class CoreManager {
     playerX: number,
     playerY: number,
     bullets: Bullet[],
+    suppressSpawn: boolean,
     listeners: CoreManagerListeners,
   ): void {
-    this.trySpawn(now, canvasWidth, intensity, listeners);
+    this.trySpawn(now, canvasWidth, intensity, suppressSpawn, listeners);
     this.updateLasers(now);
 
     for (const core of this.cores) {
@@ -180,8 +181,15 @@ export class CoreManager {
     now: number,
     canvasWidth: number,
     intensity: number,
+    suppressSpawn: boolean,
     listeners: CoreManagerListeners,
   ): void {
+    // 「群れ」敵(swarmManager.ts)が出現中は、弱・中・強ボスの新規出現を
+    // 止める(逆に、ボスが既にいる状態で群れ敵が出現するのは問題ない)。
+    if (suppressSpawn) {
+      this.nextSpawnAt = now + 1000;
+      return;
+    }
     if (now < this.nextSpawnAt) return;
     if (this.recentEmojis.length === 0) return;
 

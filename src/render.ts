@@ -1,4 +1,4 @@
-import type { Player, Bullet, Core, PlayerBullet, Laser } from "./game/entities.js";
+import type { Player, Bullet, Core, PlayerBullet, Laser, Swarmer, SquadronUnit } from "./game/entities.js";
 
 // カスタム絵文字画像のプリロード・キャッシュ。
 // 同じURLの画像を何度もロードし直さないようにする。ショートコード名ではなく
@@ -234,6 +234,98 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
   ctx.fillRect(barX, barY, barWidth, barHeight);
   ctx.fillStyle = ratio > 0.3 ? "#7cf7ff" : "#ff6e6e";
   ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+}
+
+const SWARMER_RING_COLOR = "rgba(255, 200, 90, 0.85)";
+
+// 出現・消滅の瞬間だけフワッとフェードするアルファ値を計算する
+// (寿命の最初と最後、fadeInEndsAt/fadeOutStartsAtで挟まれた区間は1)。
+function swarmerAlpha(s: Swarmer, now: number): number {
+  if (now < s.fadeInEndsAt) {
+    const span = Math.max(s.fadeInEndsAt - s.spawnedAt, 1);
+    return Math.max(0, Math.min(1, (now - s.spawnedAt) / span));
+  }
+  if (now > s.fadeOutStartsAt) {
+    const span = Math.max(s.expiresAt - s.fadeOutStartsAt, 1);
+    return Math.max(0, Math.min(1, (s.expiresAt - now) / span));
+  }
+  return 1;
+}
+
+// 「群れ」敵(coreManager.tsとは別枠の短命な雑魚敵、swarmManager.ts参照)。
+// コアと同様の見た目だが、縁取りの色を専用にして見分けられるようにし、
+// 出現・消滅の瞬間はフワッとフェードさせる。
+export function drawSwarmers(ctx: CanvasRenderingContext2D, swarmers: readonly Swarmer[], now: number): void {
+  for (const s of swarmers) {
+    const alpha = swarmerAlpha(s, now);
+    if (alpha <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.spriteSize / 2 + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = SWARMER_RING_COLOR;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    if (isImageReady(s.img)) {
+      const haloWidth = scaledWidthForHeight(s.img, s.spriteSize);
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, haloWidth * 0.45, s.spriteSize * 0.45, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.fill();
+      drawImageMatchHeight(ctx, s.img, s.x, s.y, s.spriteSize);
+    } else {
+      drawEnemyFallback(ctx, s.x, s.y, s.spriteSize * 0.5);
+    }
+
+    const barWidth = s.spriteSize * 1.2;
+    const barHeight = 5;
+    const barX = s.x - barWidth / 2;
+    const barY = s.y - s.spriteSize / 2 - barHeight - 6;
+    const ratio = Math.max(s.hp / s.maxHp, 0);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    ctx.fillStyle = ratio > 0.3 ? "#ffd25a" : "#ff6e6e";
+    ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+
+    ctx.restore();
+  }
+}
+
+const SQUADRON_RING_COLOR = "rgba(140, 200, 255, 0.85)";
+
+// 2列×8体の編隊で出現する敵(coreManager.tsとは別枠、squadronManager.ts参照)。
+// 1体ごとのHPが低いことが伝わるよう、他の敵よりHPバーを薄く小さめにする。
+export function drawSquadronUnits(ctx: CanvasRenderingContext2D, units: readonly SquadronUnit[]): void {
+  for (const u of units) {
+    ctx.beginPath();
+    ctx.arc(u.x, u.y, u.spriteSize / 2 + 3, 0, Math.PI * 2);
+    ctx.strokeStyle = SQUADRON_RING_COLOR;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (isImageReady(u.img)) {
+      const haloWidth = scaledWidthForHeight(u.img, u.spriteSize);
+      ctx.beginPath();
+      ctx.ellipse(u.x, u.y, haloWidth * 0.45, u.spriteSize * 0.45, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.fill();
+      drawImageMatchHeight(ctx, u.img, u.x, u.y, u.spriteSize);
+    } else {
+      drawEnemyFallback(ctx, u.x, u.y, u.spriteSize * 0.5);
+    }
+
+    const barWidth = u.spriteSize;
+    const barHeight = 4;
+    const barX = u.x - barWidth / 2;
+    const barY = u.y - u.spriteSize / 2 - barHeight - 5;
+    const ratio = Math.max(u.hp / u.maxHp, 0);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    ctx.fillStyle = ratio > 0.3 ? "#8cc8ff" : "#ff6e6e";
+    ctx.fillRect(barX, barY, barWidth * ratio, barHeight);
+  }
 }
 
 // 強ボス専用のレーザー。予告(telegraph)中は狙いだけを示す点滅する破線、

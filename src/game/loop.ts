@@ -9,10 +9,12 @@
 // - 一部の通常弾は「残機回復弾」(捕まえると残機+1、上限あり)。
 import type { EmojiOccurrence } from "../noteEmoji.js";
 import type { InputController } from "../input.js";
-import type { Bullet, Core, Laser, Player, PlayerBullet } from "./entities.js";
+import type { Bullet, Core, Laser, Player, PlayerBullet, Swarmer, SquadronUnit } from "./entities.js";
 import { createBulletId } from "./entities.js";
 import { BulletSpawner } from "./spawner.js";
 import { CoreManager } from "./coreManager.js";
+import { SwarmManager } from "./swarmManager.js";
+import { SquadronManager } from "./squadronManager.js";
 import { updateBullet } from "./bulletMotion.js";
 
 // 5分までは通常運転(intensity倍率1.0=現状と完全に同じ)。5分以降は段階的に
@@ -64,6 +66,10 @@ const CORE_DEFEAT_SCORE_BONUS: Record<Core["tier"], number> = {
   mid: 500,
   strong: 1500,
 };
+// 「群れ」敵(Swarmer)撃破時の加点。弱ボスよりHPが低い分、加点も控えめにする。
+const SWARMER_DEFEAT_SCORE_BONUS = 80;
+// 編隊敵(SquadronUnit)1体撃破時の加点。容易に倒せる分、さらに控えめにする。
+const SQUADRON_UNIT_DEFEAT_SCORE_BONUS = 40;
 
 export interface GameOverInfo {
   score: number;
@@ -82,6 +88,8 @@ export interface GameEventListeners {
   onGameOver?: (info: GameOverInfo) => void;
   onCoreDefeated?: (core: Core) => void;
   onCoreSpawned?: (core: Core) => void;
+  onSwarmerDefeated?: (swarmer: Swarmer) => void;
+  onSquadronUnitDefeated?: (unit: SquadronUnit) => void;
   onLifeUp?: () => void;
   onGrazeChange?: (count: number) => void;
   onPlayerShoot?: () => void;
@@ -106,6 +114,8 @@ export class GameState {
   private readonly startedAt: number;
   private readonly spawner = new BulletSpawner();
   private readonly coreManager = new CoreManager();
+  private readonly swarmManager = new SwarmManager();
+  private readonly squadronManager = new SquadronManager();
   private nextPlayerShotAt = 0;
 
   constructor(
@@ -134,6 +144,14 @@ export class GameState {
     return this.coreManager.lasers;
   }
 
+  get swarmers(): readonly Swarmer[] {
+    return this.swarmManager.swarmers;
+  }
+
+  get squadronUnits(): readonly SquadronUnit[] {
+    return this.squadronManager.units;
+  }
+
   handleEmojiOccurrences(occurrences: EmojiOccurrence[], now: number): void {
     if (this.gameOver || occurrences.length === 0) return;
 
@@ -152,6 +170,8 @@ export class GameState {
         occurrence.cutInText,
         occurrence.cutInEmojis,
       );
+      this.swarmManager.registerEmoji(occurrence.shortcode, occurrence.url, occurrence.noteUrl);
+      this.squadronManager.registerEmoji(occurrence.shortcode, occurrence.url, occurrence.noteUrl);
       this.spawner.trySpawnFromOccurrence(occurrence, ctx, this.bullets);
     }
   }
@@ -162,6 +182,36 @@ export class GameState {
     input.update(this.player, dtSec);
     this.updatePlayerShooting(now, dtSec, input);
     this.updateEnemyBullets(dtSec, now);
+
+    this.swarmManager.update(
+      now,
+      this.canvas.width,
+      this.canvas.height,
+      this.bullets,
+      {
+        onSwarmerDefeated: (swarmer) => {
+          this.bonusScore += SWARMER_DEFEAT_SCORE_BONUS;
+          this.listeners.onScoreBonus?.(SWARMER_DEFEAT_SCORE_BONUS);
+          this.listeners.onSwarmerDefeated?.(swarmer);
+        },
+      },
+    );
+
+    this.squadronManager.update(
+      now,
+      this.canvas.width,
+      this.canvas.height,
+      this.player.x,
+      this.player.y,
+      this.bullets,
+      {
+        onUnitDefeated: (unit) => {
+          this.bonusScore += SQUADRON_UNIT_DEFEAT_SCORE_BONUS;
+          this.listeners.onScoreBonus?.(SQUADRON_UNIT_DEFEAT_SCORE_BONUS);
+          this.listeners.onSquadronUnitDefeated?.(unit);
+        },
+      },
+    );
 
     const intensity =
       this.spawner.getStreamIntensity(now) * getTimeDifficultyMultiplier(this.survivedMs(now));
@@ -174,6 +224,7 @@ export class GameState {
       this.player.x,
       this.player.y,
       this.bullets,
+      this.swarmManager.isActive(),
       {
         onCoreDefeated: (core) => {
           const bonus = CORE_DEFEAT_SCORE_BONUS[core.tier];
@@ -185,6 +236,8 @@ export class GameState {
       },
     );
     this.handlePlayerBulletsVsCores();
+    this.handlePlayerBulletsVsSwarmers();
+    this.handlePlayerBulletsVsSquadron();
 
     // 残機回復弾は無敵時間中でも拾える(無敵は被弾を防ぐためのものであって、
     // 回復のチャンスまで奪う必要はない)。ダメージ弾のみ無敵中は判定しない。
@@ -259,6 +312,38 @@ export class GameState {
         const rSum = PLAYER_BULLET_RADIUS + core.hitRadius;
         if (dx * dx + dy * dy <= rSum * rSum) {
           core.hp -= PLAYER_BULLET_DAMAGE;
+          return false; // この自機弾は消費された
+        }
+      }
+      return true;
+    });
+  }
+
+  private handlePlayerBulletsVsSwarmers(): void {
+    if (this.swarmManager.swarmers.length === 0) return;
+    this.playerBullets = this.playerBullets.filter((pb) => {
+      for (const s of this.swarmManager.swarmers) {
+        const dx = pb.x - s.x;
+        const dy = pb.y - s.y;
+        const rSum = PLAYER_BULLET_RADIUS + s.hitRadius;
+        if (dx * dx + dy * dy <= rSum * rSum) {
+          s.hp -= PLAYER_BULLET_DAMAGE;
+          return false; // この自機弾は消費された
+        }
+      }
+      return true;
+    });
+  }
+
+  private handlePlayerBulletsVsSquadron(): void {
+    if (this.squadronManager.units.length === 0) return;
+    this.playerBullets = this.playerBullets.filter((pb) => {
+      for (const u of this.squadronManager.units) {
+        const dx = pb.x - u.x;
+        const dy = pb.y - u.y;
+        const rSum = PLAYER_BULLET_RADIUS + u.hitRadius;
+        if (dx * dx + dy * dy <= rSum * rSum) {
+          u.hp -= PLAYER_BULLET_DAMAGE;
           return false; // この自機弾は消費された
         }
       }

@@ -82,12 +82,18 @@ export function spiralArmVelocities(armCount: number, baseAngle: number): Veloci
 // 同心円弾幕。半径の異なる複数のリングを一度に撃つ(見た目には近い半径の
 // ものほど遅れて追いつく形になり、波紋のように広がる)。中ボスの攻撃用。
 // 隣り合うリングを半歩分ずらすことで、放射状の「スポーク」ではなく
-// 花びらが互い違いに重なるマンダラ状の見た目にする。
-export function concentricRingsVelocities(ringCount: number, perRingCount: number): Velocity[] {
+// 花びらが互い違いに重なるマンダラ状の見た目にする。baseAngleOffsetを
+// 呼び出しごとに少しずつずらすと、リング全体がゆっくり回転しながら
+// 連続発生する見た目になる(swarmManager.ts参照)。
+export function concentricRingsVelocities(
+  ringCount: number,
+  perRingCount: number,
+  baseAngleOffset = 0,
+): Velocity[] {
   const result: Velocity[] = [];
   for (let ring = 0; ring < ringCount; ring++) {
     const speed = MIN_SPEED + (ring / Math.max(ringCount - 1, 1)) * (MAX_SPEED - MIN_SPEED);
-    const angleOffset = (ring % 2) * (Math.PI / perRingCount);
+    const angleOffset = baseAngleOffset + (ring % 2) * (Math.PI / perRingCount);
     for (let i = 0; i < perRingCount; i++) {
       const angle = angleOffset + (Math.PI * 2 * i) / perRingCount;
       result.push(velocityFromAngle(angle, speed));

@@ -8,6 +8,8 @@ import {
   drawPlayer,
   drawPlayerBullets,
   drawCore,
+  drawSwarmers,
+  drawSquadronUnits,
   drawLasers,
 } from "./render.js";
 import { InputController } from "./input.js";
@@ -577,6 +579,13 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
         else playWeakOrMidBossDownSfx();
       },
       onCoreSpawned: (core) => enqueueCutIn(core),
+      onSwarmerDefeated: () => {
+        flashCoreMessage(randomCoreDefeatLine());
+        playWeakOrMidBossDownSfx();
+      },
+      // 編隊敵は1体ずつのHPが低く、連続で倒れることも多いため、フラッシュ
+      // 文言は出さず効果音だけにする(頻発するとメッセージが煩わしいため)。
+      onSquadronUnitDefeated: () => playWeakOrMidBossDownSfx(),
       onLifeUp: () => {
         flashCoreMessage(randomLifeUpLine());
         playLifeUpSfx();
@@ -637,6 +646,8 @@ function tick(now: number): void {
     }
     // 一時停止中も、直前のフレームの状態をそのまま描画し続ける(フリーズ画面)。
     for (const core of game.cores) drawCore(ctx, core);
+    drawSwarmers(ctx, game.swarmers, now);
+    drawSquadronUnits(ctx, game.squadronUnits);
     drawLasers(ctx, game.lasers, now);
     drawBullets(ctx, game.bullets, now);
     drawPlayerBullets(ctx, game.playerBullets);
