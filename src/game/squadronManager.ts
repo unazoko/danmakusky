@@ -1,7 +1,7 @@
 // 2列×8体の編隊で出現する敵(SquadronUnit)。coreManager.ts/swarmManager.ts
 // とは別枠。画面右端・左端のどちらかから侵入し、蛇のように大きく上下へ
 // うねりながら横切って反対サイドへ抜けていく。前(row=0)から順に1体ずつ、
-// 500ms間隔で自機のいる方向へ直進弾(追尾なし、同時に複数発は撃たない)を
+// 自機のいる方向へ直進弾(追尾なし、同時に複数発は撃たない)を
 // 撃つ。最後尾まで撃ち終えたら1拍分間を空けて先頭から撃ち直す。
 // 1体ごとのHPは低く、容易に撃墜できる(倒された分は発射順から除外される)。
 import type { Bullet, SquadronUnit } from "./entities.js";
@@ -31,7 +31,8 @@ const SWAY_PERIOD_MS = 5000;
 // (編隊の全長+αぶんの余裕を持たせる)。
 const ENTRY_MARGIN_PX = ROW_GAP_PX * ROWS + SPRITE_SIZE * 2;
 
-const FIRE_INTERVAL_MS = 250;
+// その行が撃ってから次の行が撃つまでの間隔
+const FIRE_INTERVAL_MS = 180;
 // 攻撃弾の弾速倍率(固定、時間経過等では変化しない)。
 const BULLET_SPEED_MULTIPLIER = 2;
 

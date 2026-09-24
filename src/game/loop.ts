@@ -34,9 +34,9 @@ export function getTimeDifficultyMultiplier(survivedMs: number): number {
 // とは別の、より緩やかな段階)。10分以降は2倍で頭打ちにする。
 export function getBossBulletSpeedMultiplier(survivedMs: number): number {
   const minutes = survivedMs / 60000;
-  if (minutes < 5) return 1;
-  if (minutes < 7) return 1.25;
-  if (minutes < 10) return 1.5;
+  if (minutes < 3) return 1;
+  if (minutes < 5) return 1.5;
+  if (minutes < 8) return 1.75;
   return 2;
 }
 
@@ -233,6 +233,7 @@ export class GameState {
       this.canvas.height,
       intensity,
       bulletSpeedMultiplier,
+      survivedMs,
       this.player.x,
       this.player.y,
       this.bullets,

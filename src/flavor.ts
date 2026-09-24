@@ -90,6 +90,7 @@ const DEATH_INTROS = [
   "SOUSA-MISS",
   "回避に失敗しました",
   "起床が遅延しました",
+  "緊急停止装置作動",
   "防衛ライン崩壊\n原因：カスタム絵文字",
   "回避行動に失敗",
   "致命的損傷を確認",
@@ -123,14 +124,13 @@ export function randomCoreDefeatLine(): string {
 
 const LIFE_UP_LINES = [
   "VITALITY RESTORED",
-  "キモティー！",
   "LIFE UP! ラッキー",
   "SYSTEM: 生き返った",
   "EMERGENCY REVIVAL SUCCESSFUL",
   "大丈夫なことにします",
   "たすかる",
   "うれしい",
-  "SYSTEM: もう一回だけ",
+  "SYSTEM: もう一度だけ",
   "復活しました",
 ];
 export function randomLifeUpLine(): string {

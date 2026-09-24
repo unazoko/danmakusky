@@ -206,6 +206,12 @@ export interface Laser {
   grazed?: boolean;
   // Bullet.noteUrlと同じ(このレーザーを撃ったコアの出所ノートへのリンク)。
   noteUrl: string | null;
+  // プレイ時間3分経過後に有効になる、発射中(firing)だけ働く回転速度。
+  // 0/undefinedなら回転しない(coreManager.ts参照)。
+  angularVelocityRadPerSec?: number;
+  // この時刻以降は回転を止める(2本同時撃ちで互いに近づく向きのとき、
+  // 角度が狭くなりすぎる/交差するのを防ぐための上限、coreManager.ts参照)。
+  angleFreezeAt?: number;
 }
 
 let nextBulletId = 1;

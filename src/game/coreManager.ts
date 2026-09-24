@@ -53,10 +53,23 @@ const BOSS_EXCLUDED_SHORTCODES = new Set(["ba_ibuki_facea"]);
 // 強ボスの通常攻撃間隔(500ms/流速)よりずっと長い一連の演出になるため、
 // 乱発して見えないようクールダウンを別に設ける。
 const LASER_TELEGRAPH_MS = 650;
-const LASER_FIRE_MS = 550;
+const LASER_FIRE_MS = 1000;
 const LASER_WIDTH_PX = 28;
 const LASER_LENGTH_PX = 2000;
 const LASER_COOLDOWN_MS = 3500;
+// 強ボスのレーザーは、撃つたびに1本か2本かをランダムに決める。2本のときは
+// 自機方向を中心に左右へ少しずつ角度をずらし、完全に重なって見えないようにする。
+const DOUBLE_LASER_CHANCE = 0.5;
+const DOUBLE_LASER_ANGLE_OFFSET_RAD = (12 * Math.PI) / 180;
+// プレイ時間が一定時間を超えたら、発射中(firing)のレーザーが回転して振れる
+// ようにする。2本同時のときは、常に外側へ逃げるのではなく各本独立に
+// 回転方向をランダムに決める(そうしないと必ず開いていくだけで避けやすい
+// ため)。その代わり、互いに近づく組み合わせを引いた場合でも2本が成す角度が
+// MIN_LASER_ANGLE_GAP_RADより狭くなったり交差したりしないよう、
+// そこに達する時刻で両方とも回転を止める(angleFreezeAt、下記参照)。
+const LASER_SWEEP_UNLOCK_MS = 2 * 60 * 1000;
+const LASER_SWEEP_SPEED_RAD_PER_SEC = (15 * Math.PI) / 180;
+const MIN_LASER_ANGLE_GAP_RAD = (14 * Math.PI) / 180;
 
 // 弱・中・強ボス共通の移動(東方のボスを参考に、地点間をなめらかに移動→
 // 静止を繰り返す。単純な往復運動にはしない)。移動(グライド)自体は短く、
@@ -80,17 +93,23 @@ const LIFEUP_HOMING_DELAY_MS = 1000;
 const LIFEUP_HOMING_SPEED = 260;
 const LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC = Math.PI * 4;
 
-// 中ボスは倒し切れなくても20秒で自動消滅する(撃破扱いにはしない、報酬もなし)。
+// 中ボスは倒し切れなくても一定時間で自動消滅する(撃破扱いにはしない、報酬もなし)。
 // 消える直前はフワッとフェードアウトさせる(render.ts参照)。
-const MID_LIFESPAN_MS = 20000;
+const MID_LIFESPAN_MS = 15000;
 const MID_FADE_MS = 300;
+
+// 開始直後20秒間は強ボスを出現させない。また、開始1分30秒経過時点で
+// まだ一度も強ボスが出現していなければ、その時点(または既存の「強ボスが
+// 出現できない状況」が解除された直後)に強制的に出現させる(trySpawn参照)。
+const STRONG_MIN_SPAWN_MS = 20000;
+const STRONG_GUARANTEE_MS = 90000;
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
 // intensityが大きくなっても攻撃間隔が0に近づいて理不尽にならないよう設ける下限。
 const MIN_ATTACK_INTERVAL_MS = 150;
 const MAX_RECENT_EMOJI_URLS = 20;
 // 弱ボスが画面下へ流れていく速度(通常弾のstraightBullet等と同程度)。
-const WEAK_DRIFT_SPEED_PX_PER_SEC = 28;
+const WEAK_DRIFT_SPEED_PX_PER_SEC = 45;
 // 弱ボスの近場ウェーブ(現在地からどれだけ離れた場所へ移動先を選ぶか)。
 const WEAK_WANDER_RANGE_PX = 160;
 // 画面外に十分出た弱ボスは通常弾と同じように消す(このマージンより
@@ -118,6 +137,8 @@ export class CoreManager {
   private nextSpawnAt = 0;
   // 強ボスは常に最大1体なので、コアごとではなくCoreManager全体で1本管理する。
   private nextLaserAt = 0;
+  // このラウンドで強ボスが一度でも出現したか(STRONG_GUARANTEE_MSの保証用)。
+  private hasStrongSpawned = false;
 
   // コアの攻撃弾の死因表示にショートコードをそのまま使えるよう、URLだけでなく
   // ショートコードも合わせて記録しておく。
@@ -140,18 +161,19 @@ export class CoreManager {
     canvasHeight: number,
     intensity: number,
     bulletSpeedMultiplier: number,
+    survivedMs: number,
     playerX: number,
     playerY: number,
     bullets: Bullet[],
     suppressSpawn: boolean,
     listeners: CoreManagerListeners,
   ): void {
-    this.trySpawn(now, canvasWidth, intensity, suppressSpawn, listeners);
-    this.updateLasers(now);
+    this.trySpawn(now, canvasWidth, intensity, survivedMs, suppressSpawn, listeners);
+    this.updateLasers(dtSec, now);
 
     for (const core of this.cores) {
       this.updateMovement(core, dtSec, now, canvasWidth);
-      this.updateAttack(core, now, intensity, bulletSpeedMultiplier, playerX, playerY, bullets);
+      this.updateAttack(core, now, intensity, bulletSpeedMultiplier, survivedMs, playerX, playerY, bullets);
     }
 
     const defeated = this.cores.filter((c) => c.hp <= 0);
@@ -212,6 +234,7 @@ export class CoreManager {
     now: number,
     canvasWidth: number,
     intensity: number,
+    survivedMs: number,
     suppressSpawn: boolean,
     listeners: CoreManagerListeners,
   ): void {
@@ -235,8 +258,10 @@ export class CoreManager {
 
     // 強ボスは、中ボスが既にいる間は新たに出現させない(強ボスの激しい弾幕と
     // 中ボスの弾幕が重なると理不尽になりやすいため)。逆(強ボスがいる状態で
-    // 中ボスが新たに出現すること)は許容する。
+    // 中ボスが新たに出現すること)は許容する。また、開始20秒間は強ボス自体を
+    // 出現不可にする。
     const eligibleTiers = (Object.keys(TIER_CONFIG) as CoreTier[]).filter((tier) => {
+      if (tier === "strong" && survivedMs < STRONG_MIN_SPAWN_MS) return false;
       if (this.countByTier(tier) >= TIER_CONFIG[tier].maxSimultaneous) return false;
       if (tier === "strong" && this.countByTier("mid") > 0) return false;
       if (!flavorMode && tier !== "weak" && !hasCutInTextCandidate) return false;
@@ -247,7 +272,18 @@ export class CoreManager {
       return;
     }
 
-    const tier = pickWeighted(eligibleTiers, (t) => TIER_CONFIG[t].spawnWeight);
+    // 開始1分30秒経過時点でまだ一度も強ボスが出現していなければ、通常の
+    // 重み付き抽選を無視して強制的に強ボスを出現させる。ただし上の
+    // eligibleTiersの絞り込みで強ボスが出現できない状況(中ボスがいる、
+    // カットイン本文候補が無い等)なら、その状況が解除されて
+    // eligibleTiersに"strong"が入ってくるまで、この回では通常抽選に任せる
+    // (次回以降のtrySpawnで再度この判定を試みる)。
+    const mustForceStrong = !this.hasStrongSpawned && survivedMs >= STRONG_GUARANTEE_MS;
+    const tier =
+      mustForceStrong && eligibleTiers.includes("strong")
+        ? "strong"
+        : pickWeighted(eligibleTiers, (t) => TIER_CONFIG[t].spawnWeight);
+    if (tier === "strong") this.hasStrongSpawned = true;
     const cfg = TIER_CONFIG[tier];
     // カットインの絵文字と引用文は、必ず同じ投稿由来のものにする(見た目と
     // 引用文の出所がズレるとコンセプト的におかしいため)。中ボス・強ボスで
@@ -364,6 +400,7 @@ export class CoreManager {
     now: number,
     intensity: number,
     bulletSpeedMultiplier: number,
+    survivedMs: number,
     playerX: number,
     playerY: number,
     bullets: Bullet[],
@@ -457,7 +494,57 @@ export class CoreManager {
         pattern === "spiral" || pattern === "dualSpiral" || pattern === "converge" || pattern === "laser";
 
       if (pattern === "laser") {
-        this.spawnLaser(core, now, playerX, playerY);
+        // 1本か2本かをここでランダムに決める。
+        const fireDouble = Math.random() < DOUBLE_LASER_CHANCE;
+        // 3分経過後は発射中に回転して振れるようにする。
+        const sweepEnabled = survivedMs >= LASER_SWEEP_UNLOCK_MS;
+        if (fireDouble) {
+          // 各本の回転方向は独立にランダムへ決める(常に外側へ開くだけだと
+          // 避けやすすぎるため)。ただし互いに近づく組み合わせを引いた場合、
+          // 2本が成す角度がMIN_LASER_ANGLE_GAP_RADへ達する時刻を計算し、
+          // その時刻で両方とも回転を止める(交差・極端な接近を防ぐ)。
+          const dirA = Math.random() < 0.5 ? -1 : 1;
+          const dirB = Math.random() < 0.5 ? -1 : 1;
+          let freezeAt: number | undefined;
+          if (sweepEnabled) {
+            const closureRadPerSec = (dirA - dirB) * LASER_SWEEP_SPEED_RAD_PER_SEC;
+            if (closureRadPerSec > 0) {
+              // dirA・dirBが互いに近づく向きの組み合わせ。
+              const initialGapRad = DOUBLE_LASER_ANGLE_OFFSET_RAD * 2;
+              const closableRad = Math.max(0, initialGapRad - MIN_LASER_ANGLE_GAP_RAD);
+              freezeAt = now + (closableRad / closureRadPerSec) * 1000;
+            }
+          }
+          this.spawnLaser(
+            core,
+            now,
+            playerX,
+            playerY,
+            -DOUBLE_LASER_ANGLE_OFFSET_RAD,
+            sweepEnabled ? dirA * LASER_SWEEP_SPEED_RAD_PER_SEC : 0,
+            freezeAt,
+          );
+          this.spawnLaser(
+            core,
+            now,
+            playerX,
+            playerY,
+            DOUBLE_LASER_ANGLE_OFFSET_RAD,
+            sweepEnabled ? dirB * LASER_SWEEP_SPEED_RAD_PER_SEC : 0,
+            freezeAt,
+          );
+        } else {
+          const sweepDir = Math.random() < 0.5 ? -1 : 1;
+          this.spawnLaser(
+            core,
+            now,
+            playerX,
+            playerY,
+            0,
+            sweepEnabled ? sweepDir * LASER_SWEEP_SPEED_RAD_PER_SEC : 0,
+          );
+        }
+        this.nextLaserAt = now + LASER_COOLDOWN_MS;
         return;
       }
 
@@ -512,8 +599,19 @@ export class CoreManager {
 
   // 予告開始の瞬間の自機位置へ狙いを固定する(以後は自機が動いても追尾しない、
   // 「狙いを見て避ける」東方のレーザー攻撃と同じ緊張感を出すため)。
-  private spawnLaser(core: Core, now: number, playerX: number, playerY: number): void {
-    const angle = Math.atan2(playerY - core.y, playerX - core.x);
+  // angleOffsetRadは2本同時撃ちのときに左右へずらすためのもの(通常は0)。
+  // angularVelocityRadPerSecは発射中(firing)の回転速度(3分未満は常に0)。
+  // angleFreezeAtは、その時刻以降回転を止める上限(2本が近づきすぎるのを防ぐ)。
+  private spawnLaser(
+    core: Core,
+    now: number,
+    playerX: number,
+    playerY: number,
+    angleOffsetRad = 0,
+    angularVelocityRadPerSec = 0,
+    angleFreezeAt?: number,
+  ): void {
+    const angle = Math.atan2(playerY - core.y, playerX - core.x) + angleOffsetRad;
     this.lasers.push({
       id: createLaserId(),
       originX: core.x,
@@ -526,15 +624,22 @@ export class CoreManager {
       shortcode: core.shortcode,
       img: core.img,
       noteUrl: core.noteUrl,
+      angularVelocityRadPerSec,
+      angleFreezeAt,
     });
-    this.nextLaserAt = now + LASER_COOLDOWN_MS;
   }
 
-  private updateLasers(now: number): void {
+  private updateLasers(dtSec: number, now: number): void {
     for (const laser of this.lasers) {
       if (laser.state === "telegraph" && now >= laser.stateEndsAt) {
         laser.state = "firing";
         laser.stateEndsAt = now + LASER_FIRE_MS;
+      } else if (
+        laser.state === "firing" &&
+        laser.angularVelocityRadPerSec &&
+        (laser.angleFreezeAt === undefined || now < laser.angleFreezeAt)
+      ) {
+        laser.angle += laser.angularVelocityRadPerSec * dtSec;
       }
     }
     this.lasers = this.lasers.filter((l) => l.state !== "firing" || now < l.stateEndsAt);
