@@ -15,6 +15,19 @@ import { BulletSpawner } from "./spawner.js";
 import { CoreManager } from "./coreManager.js";
 import { updateBullet } from "./bulletMotion.js";
 
+// 5分までは通常運転(intensity倍率1.0=現状と完全に同じ)。5分以降は段階的に
+// 引き上げ、長時間生存し続ける上級者向けに終盤の難易度を明確に強める
+// (通常弾自体には触れず、コアの攻撃間隔・出現頻度にのみ効かせる、
+// coreManager.ts参照)。
+function getTimeDifficultyMultiplier(survivedMs: number): number {
+  const minutes = survivedMs / 60000;
+  if (minutes < 5) return 1;
+  if (minutes < 7) return 1.25;
+  if (minutes < 10) return 1.75;
+  if (minutes < 13) return 2.5;
+  return 3.5;
+}
+
 export const INITIAL_LIFE = 6;
 const SCORE_PER_SECOND = 100;
 // 被弾直後、この時間は無敵にする(同時多発的な多重被弾で瞬時に残機を失うのを防ぐ、
@@ -150,7 +163,8 @@ export class GameState {
     this.updatePlayerShooting(now, dtSec, input);
     this.updateEnemyBullets(dtSec, now);
 
-    const intensity = this.spawner.getStreamIntensity(now);
+    const intensity =
+      this.spawner.getStreamIntensity(now) * getTimeDifficultyMultiplier(this.survivedMs(now));
     this.coreManager.update(
       dtSec,
       now,

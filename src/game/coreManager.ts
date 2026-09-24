@@ -1,18 +1,23 @@
 // Misskeyの投稿流を弾幕として放つ「コア」(東方のボス役)の管理。
 // コアには3段階の強さ(弱/中/強)があり、出現頻度は弱>中>強、同時出現数の
-// 上限もそれぞれ異なる。攻撃間隔・移動速度は、直近の連合TLの流速
-// (BulletSpawner.getStreamIntensity)でスケールし、「流速が高いほど難しい」
-// という基本コンセプトをコアの攻撃にも反映させる。
+// 上限もそれぞれ異なる。攻撃間隔・出現間隔は、直近の連合TLの流速
+// (BulletSpawner.getStreamIntensity)に加えてプレイ時間経過による倍率
+// (loop.ts: getTimeDifficultyMultiplier、5分以降で段階的に上昇)も掛けた
+// intensityでスケールし、「流速・プレイ時間が高いほど難しい」という
+// 基本コンセプトをコアの攻撃にも反映させる。
 import type { Bullet, Core, CoreTier, Laser } from "./entities.js";
 import { createBulletId, createCoreId, createLaserId } from "./entities.js";
 import {
   aimedBullet,
   aimedFanVelocities,
+  arcVelocities,
   circularBurst,
   concentricRingsVelocities,
+  convergingRingVelocities,
   crossBurstVelocities,
   spiralArmVelocities,
   flowerBurstVelocities,
+  type Velocity,
 } from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
 import { isCutInFlavorMode } from "../cutInSettings.js";
@@ -67,6 +72,8 @@ const STRONG_GLIDE: GlideTiming = { glideMinMs: 1000, glideRandomMs: 600, holdMi
 const GLIDE_TIMING: Record<CoreTier, GlideTiming> = { weak: WEAK_GLIDE, mid: MID_GLIDE, strong: STRONG_GLIDE };
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
+// intensityが大きくなっても攻撃間隔が0に近づいて理不尽にならないよう設ける下限。
+const MIN_ATTACK_INTERVAL_MS = 150;
 const MAX_RECENT_EMOJI_URLS = 20;
 // 弱ボスが画面下へ流れていく速度(通常弾のstraightBullet等と同程度)。
 const WEAK_DRIFT_SPEED_PX_PER_SEC = 28;
@@ -123,7 +130,7 @@ export class CoreManager {
     bullets: Bullet[],
     listeners: CoreManagerListeners,
   ): void {
-    this.trySpawn(now, canvasWidth, listeners);
+    this.trySpawn(now, canvasWidth, intensity, listeners);
     this.updateLasers(now);
 
     for (const core of this.cores) {
@@ -168,7 +175,12 @@ export class CoreManager {
     });
   }
 
-  private trySpawn(now: number, canvasWidth: number, listeners: CoreManagerListeners): void {
+  private trySpawn(
+    now: number,
+    canvasWidth: number,
+    intensity: number,
+    listeners: CoreManagerListeners,
+  ): void {
     if (now < this.nextSpawnAt) return;
     if (this.recentEmojis.length === 0) return;
 
@@ -240,7 +252,9 @@ export class CoreManager {
     this.cores.push(core);
     listeners.onCoreSpawned?.(core);
 
-    this.nextSpawnAt = now + BASE_SPAWN_INTERVAL_MS + Math.random() * BASE_SPAWN_INTERVAL_MS;
+    // 流速・時間経過によるintensityが高いほど、ボスの出現間隔自体も短くする
+    // (攻撃間隔の短縮と同じintensityをそのまま使い回す)。
+    this.nextSpawnAt = now + (BASE_SPAWN_INTERVAL_MS + Math.random() * BASE_SPAWN_INTERVAL_MS) / intensity;
   }
 
   private countByTier(tier: CoreTier): number {
@@ -313,27 +327,29 @@ export class CoreManager {
   ): void {
     if (now < core.nextAttackAt) return;
     const cfg = TIER_CONFIG[core.tier];
-    // 流速が高いほど攻撃間隔を短くする(=激しくなる)。
-    core.nextAttackAt = now + cfg.attackIntervalMs / intensity;
+    // 流速・時間経過が激しいほど攻撃間隔を短くする(=激しくなる)。ただし
+    // intensityが非常に大きくなっても理不尽にならないよう下限を設ける。
+    core.nextAttackAt = now + Math.max(MIN_ATTACK_INTERVAL_MS, cfg.attackIntervalMs / intensity);
 
     const img = core.img;
-    let velocities: { vx: number; vy: number }[];
+    let velocities: Velocity[];
 
     if (core.tier === "weak") {
       // 単調な攻撃: 自機狙いを1発だけ。
       velocities = [aimedBullet(core.x, core.y, playerX, playerY)];
     } else if (core.tier === "mid") {
-      // 東方を参考に、螺旋・同心円・自機狙いの扇・十字(風車)・花びら(バラ曲線)・
-      // 輪の切れ目(壁の隙間を抜けさせる)をランダムに織り交ぜる。強ボスよりも
-      // 1回あたりの弾数を絞って密度を抑える。
+      // 東方を参考に、螺旋・同心円(マンダラ状)・自機狙いの扇・十字(風車)・
+      // 花びら(バラ曲線)・回転する隙間の壁・収束リングをランダムに織り交ぜる。
+      // 強ボスよりも1回あたりの弾数を絞って密度を抑える。
       core.attackAngle += (10 * Math.PI) / 180;
       const pattern = pickWeighted(
-        ["spiral", "rings", "fan", "cross", "flower", "ringGap"] as const,
-        (p) => ({ spiral: 20, rings: 15, fan: 20, cross: 15, flower: 15, ringGap: 15 })[p],
+        ["spiral", "rings", "fan", "cross", "flower", "ringGap", "converge"] as const,
+        (p) =>
+          ({ spiral: 20, rings: 15, fan: 20, cross: 15, flower: 15, ringGap: 15, converge: 15 })[p],
       );
-      // 渦を巻く螺旋の間だけ移動を止め、それ以外に切り替わったら再び動かす
-      // (updateMovement参照)。
-      core.frozenForPattern = pattern === "spiral";
+      // 渦を巻く螺旋・収束リングの間だけ移動を止め、それ以外に切り替わったら
+      // 再び動かす(updateMovement参照)。
+      core.frozenForPattern = pattern === "spiral" || pattern === "converge";
       if (pattern === "spiral") {
         velocities = spiralArmVelocities(3, core.attackAngle);
       } else if (pattern === "rings") {
@@ -344,14 +360,19 @@ export class CoreManager {
         velocities = crossBurstVelocities(core.attackAngle);
       } else if (pattern === "flower") {
         velocities = flowerBurstVelocities(24, 5, 90, 50, core.attackAngle);
+      } else if (pattern === "ringGap") {
+        // 自機位置ではなくattackAngleを中心にすることで、プレイヤーの動きに
+        // 依存せず隙間そのものが回転し続ける「風車の壁」の見た目になる。
+        velocities = arcVelocities(14, Math.PI * 1.6, core.attackAngle);
       } else {
-        // 自機方向を中心に、ほぼ一周(隙間だけ残す)広がる壁。隙間を通り抜けさせる。
-        velocities = aimedFanVelocities(14, Math.PI * 1.6, core.x, core.y, playerX, playerY);
+        // 収束リング: コアを囲む輪が中心へ縮んでいく。
+        velocities = convergingRingVelocities(10, core.attackAngle);
       }
     } else {
       // 強ボス: 中ボスと同じ引き出し(螺旋・同心円+放射・自機狙いの広い扇・
-      // 二重十字・花びら・輪の切れ目)に加え、逆回転の二重螺旋・強ボス専用の
-      // 「レーザー」をクールダウン付きで織り交ぜる、最も激しい攻撃。
+      // 二重十字・花びら・回転する隙間の壁・収束リング)に加え、逆回転の
+      // 二重螺旋・強ボス専用の「レーザー」をクールダウン付きで織り交ぜる、
+      // 最も激しい攻撃。
       core.attackAngle += (16 * Math.PI) / 180;
       type StrongPattern =
         | "spiral"
@@ -361,6 +382,7 @@ export class CoreManager {
         | "flower"
         | "dualSpiral"
         | "ringGap"
+        | "converge"
         | "laser";
       const weights: Record<StrongPattern, number> = {
         spiral: 20,
@@ -370,6 +392,7 @@ export class CoreManager {
         flower: 12,
         dualSpiral: 8,
         ringGap: 6,
+        converge: 10,
         laser: 16,
       };
       const candidates: StrongPattern[] = [
@@ -380,13 +403,15 @@ export class CoreManager {
         "flower",
         "dualSpiral",
         "ringGap",
+        "converge",
       ];
       if (now >= this.nextLaserAt) candidates.push("laser");
       const pattern = pickWeighted(candidates, (p) => weights[p]);
-      // 螺旋・二重螺旋・レーザーの間だけ移動を止める(いずれも複数ティックに
-      // またがって発生点の一貫性が必要、またはレーザーのように狙いを定めてから
-      // 撃つ性質上、本体が動いていると不自然なため)。
-      core.frozenForPattern = pattern === "spiral" || pattern === "dualSpiral" || pattern === "laser";
+      // 螺旋・二重螺旋・収束リング・レーザーの間だけ移動を止める(いずれも
+      // 複数ティックにまたがって発生点の一貫性が必要、またはレーザーのように
+      // 狙いを定めてから撃つ性質上、本体が動いていると不自然なため)。
+      core.frozenForPattern =
+        pattern === "spiral" || pattern === "dualSpiral" || pattern === "converge" || pattern === "laser";
 
       if (pattern === "laser") {
         this.spawnLaser(core, now, playerX, playerY);
@@ -408,7 +433,11 @@ export class CoreManager {
       } else if (pattern === "flower") {
         velocities = flowerBurstVelocities(32, 6, 100, 60, core.attackAngle);
       } else if (pattern === "ringGap") {
-        velocities = aimedFanVelocities(20, Math.PI * 1.75, core.x, core.y, playerX, playerY);
+        // 中ボスと同様、attackAngleを中心にして隙間そのものを回転させる。
+        velocities = arcVelocities(20, Math.PI * 1.75, core.attackAngle);
+      } else if (pattern === "converge") {
+        // 中ボスより広い輪・多い弾数で、強ボスらしい迫力のある収束にする。
+        velocities = convergingRingVelocities(16, core.attackAngle);
       } else {
         velocities = [
           ...crossBurstVelocities(core.attackAngle),
@@ -422,8 +451,8 @@ export class CoreManager {
         id: createBulletId(),
         img,
         shortcode: core.shortcode,
-        x: core.x,
-        y: core.y,
+        x: core.x + (v.offsetX ?? 0),
+        y: core.y + (v.offsetY ?? 0),
         vx: v.vx,
         vy: v.vy,
         size: 22,

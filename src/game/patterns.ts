@@ -6,6 +6,11 @@ import type { BulletBehavior } from "./entities.js";
 export interface Velocity {
   vx: number;
   vy: number;
+  // 発生点(コア本体の座標)からのオフセット。省略時は0(コアの位置から
+  // そのまま発射)。収束リングのように、コアを囲む複数地点から一斉に
+  // 発生させたいパターンで使う(coreManager.tsの弾生成時に加算する)。
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface SpawnedMotion {
@@ -76,14 +81,53 @@ export function spiralArmVelocities(armCount: number, baseAngle: number): Veloci
 
 // 同心円弾幕。半径の異なる複数のリングを一度に撃つ(見た目には近い半径の
 // ものほど遅れて追いつく形になり、波紋のように広がる)。中ボスの攻撃用。
+// 隣り合うリングを半歩分ずらすことで、放射状の「スポーク」ではなく
+// 花びらが互い違いに重なるマンダラ状の見た目にする。
 export function concentricRingsVelocities(ringCount: number, perRingCount: number): Velocity[] {
   const result: Velocity[] = [];
   for (let ring = 0; ring < ringCount; ring++) {
     const speed = MIN_SPEED + (ring / Math.max(ringCount - 1, 1)) * (MAX_SPEED - MIN_SPEED);
+    const angleOffset = (ring % 2) * (Math.PI / perRingCount);
     for (let i = 0; i < perRingCount; i++) {
-      const angle = (Math.PI * 2 * i) / perRingCount;
+      const angle = angleOffset + (Math.PI * 2 * i) / perRingCount;
       result.push(velocityFromAngle(angle, speed));
     }
+  }
+  return result;
+}
+
+// 自機狙いではなく、こちらで指定した角度を中心にした扇状弾。プレイヤー位置に
+// 依存させたくない(=模様そのものの規則性で見せたい)パターンで使う。
+// baseAngleにcoreManager側で毎回わずかに増加させた値を渡し続けると、
+// 隙間そのものが回転し続ける「風車の壁」のような見た目になる。
+export function arcVelocities(
+  count: number,
+  spreadRad: number,
+  baseAngle: number,
+  speed: number = randomSpeed(),
+): Velocity[] {
+  const result: Velocity[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0 : i / (count - 1) - 0.5; // -0.5〜0.5
+    result.push(velocityFromAngle(baseAngle + t * spreadRad, speed));
+  }
+  return result;
+}
+
+// 収束リング。コアを囲む円周上の各点から、一斉に中心(コア)へ向けて弾を
+// 撃つ。circularBurst(拡散)の逆再生のように、時間が経つにつれ輪が
+// 縮んでいく「収束」演出(東方でもおなじみ)。
+const CONVERGE_RADIUS_PX = 120;
+const CONVERGE_SPEED = 120;
+export function convergingRingVelocities(count: number, baseAngleOffset = 0): Velocity[] {
+  const result: Velocity[] = [];
+  for (let i = 0; i < count; i++) {
+    const angle = baseAngleOffset + (Math.PI * 2 * i) / count;
+    result.push({
+      ...velocityFromAngle(angle + Math.PI, CONVERGE_SPEED), // 円周上の角度と逆向き=中心へ
+      offsetX: Math.cos(angle) * CONVERGE_RADIUS_PX,
+      offsetY: Math.sin(angle) * CONVERGE_RADIUS_PX,
+    });
   }
   return result;
 }
