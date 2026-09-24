@@ -86,6 +86,10 @@ export interface Bullet {
   // 埋め尽くしかねないため、描画時のみ縦横比の上限を設けて縮小する
   // (render.ts参照、通常弾には適用しない)。
   isBossBullet?: boolean;
+  // 見た目だけの自転速度(ラジアン/秒)。設定されている場合、render.ts側で
+  // spawnedAtからの経過時間を使って毎フレーム回転角を計算する(軌道・
+  // 当たり判定には一切影響しない、patterns.ts: spinningBullet参照)。
+  spinRadPerSec?: number;
 }
 
 // コアの強さの階級。

@@ -13,6 +13,7 @@ import {
   aimedBullet,
   circularBurst,
   straightBullet,
+  spinningBullet,
   homingMotion,
   orbitMotion,
   zigzagMotion,
@@ -120,32 +121,38 @@ export class BulletSpawner {
     } else if (roll < 0.40) {
       const m = homingMotion(origin.x, origin.y, ctx.playerX, ctx.playerY);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.50) {
-      const m = orbitMotion(origin.x, origin.y);
-      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.58) {
+    } else if (roll < 0.48) {
       const m = zigzagMotion(ctx.now);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.66) {
+    } else if (roll < 0.56) {
       const m = redirectMotion(ctx.now);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.72) {
+    } else if (roll < 0.62) {
       const angle = Math.random() * Math.PI; // 停止後、下向き半円のどこかへ加速
       const m = delayedAccelMotion(ctx.now, angle);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.78) {
+    } else if (roll < 0.67) {
       const angle = Math.random() * Math.PI;
       const m = splitterMotion(ctx.now, angle);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.86) {
+    } else if (roll < 0.74) {
       const m = curveMotion();
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else if (roll < 0.93) {
+    } else if (roll < 0.78) {
       const m = pulseMotion(ctx.now);
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
-    } else {
+    } else if (roll < 0.88) {
+      // 公転・自転はそれぞれ約10%、急加速は残りわずか(約2%)にする。
+      const m = orbitMotion(origin.x, origin.y);
+      bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
+    } else if (roll < 0.90) {
       const m = accelMotion();
       bullets.push(makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, m, m.behavior, ctx.now));
+    } else {
+      const v = spinningBullet();
+      bullets.push(
+        makeBullet(img, occurrence.shortcode, occurrence.noteUrl, origin, v, { kind: "linear" }, ctx.now, false, v.spinRadPerSec),
+      );
     }
   }
 
@@ -166,6 +173,7 @@ function makeBullet(
   behavior: Bullet["behavior"],
   now: number,
   isLifeUp = false,
+  spinRadPerSec?: number,
 ): Bullet {
   return {
     id: createBulletId(),
@@ -181,6 +189,7 @@ function makeBullet(
     behavior,
     isLifeUp,
     noteUrl,
+    spinRadPerSec,
   };
 }
 

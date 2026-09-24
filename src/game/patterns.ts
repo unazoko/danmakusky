@@ -44,6 +44,17 @@ export function straightBullet(): Velocity {
   return velocityFromAngle(angle, randomSpeed());
 }
 
+// 自転しながら高速で直進する弾。軌道自体は直進のみで、自転は見た目だけ
+// (render.ts側でspawnedAtからの経過時間とspinRadPerSecを使って毎フレーム
+// 回転角を計算する、当たり判定には影響しない)。
+const SPIN_BULLET_SPEED = 260;
+const SPIN_RATE_RAD_PER_SEC = Math.PI * 6; // 1秒に3回転
+export function spinningBullet(): Velocity & { spinRadPerSec: number } {
+  const angle = Math.random() * Math.PI; // 下向き半円
+  const spinRadPerSec = (Math.random() < 0.5 ? -1 : 1) * SPIN_RATE_RAD_PER_SEC;
+  return { ...velocityFromAngle(angle, SPIN_BULLET_SPEED), spinRadPerSec };
+}
+
 // 発生時点のプレイヤー位置へ狙いを定める、いわゆる自機狙い弾。
 // 発生後は誘導せず直進のみ。
 export function aimedBullet(

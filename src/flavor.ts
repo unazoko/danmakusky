@@ -127,7 +127,7 @@ const LIFE_UP_LINES = [
   "LIFE UP! ラッキー",
   "SYSTEM: 生き返った",
   "EMERGENCY REVIVAL SUCCESSFUL",
-  "大丈夫なことにします",
+  "大丈夫なことにしました",
   "たすかる",
   "うれしい",
   "SYSTEM: もう一度だけ",

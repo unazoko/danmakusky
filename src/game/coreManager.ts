@@ -44,7 +44,7 @@ interface TierConfig {
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.5 },
   mid: { maxHp: 140, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.75 },
-  strong: { maxHp: 280, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 15, attackIntervalMs: 550, lifeUpDropChance: 1 },
+  strong: { maxHp: 260, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 15, attackIntervalMs: 580, lifeUpDropChance: 1 },
 };
 
 // このショートコードはボスにせず通常弾のみとする(指定による除外)。

@@ -127,6 +127,17 @@ export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bul
 
     const maxAspect = b.isBossBullet ? BOSS_BULLET_MAX_ASPECT : Infinity;
 
+    // 自転する弾(patterns.ts: spinningBullet)は、見た目だけ経過時間に応じて
+    // 回転させる(軌道・当たり判定には影響しない)。
+    const spinning = !!b.spinRadPerSec;
+    if (spinning) {
+      const spinAngle = b.spinRadPerSec! * ((now - b.spawnedAt) / 1000);
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(spinAngle);
+      ctx.translate(-b.x, -b.y);
+    }
+
     if (b.isLifeUp) {
       const pulse = 0.6 + 0.4 * Math.sin(now / 120);
       ctx.beginPath();
@@ -149,6 +160,8 @@ export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bul
     }
 
     drawImageMatchHeight(ctx, b.img, b.x, b.y, b.size, maxAspect);
+
+    if (spinning) ctx.restore();
   }
 }
 
