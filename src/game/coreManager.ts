@@ -99,7 +99,7 @@ const LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC = Math.PI * 4;
 const MID_LIFESPAN_MS = 22000;
 const MID_FADE_MS = 300;
 
-// 開始直後20秒間は強ボスを出現させない。また、開始1分30秒経過時点で
+// 開始直後20秒間は強ボスを出現させない。また、開始1分経過時点で
 // まだ一度も強ボスが出現していなければ、その時点(または既存の「強ボスが
 // 出現できない状況」が解除された直後)に強制的に出現させる(trySpawn参照)。
 const STRONG_MIN_SPAWN_MS = 20000;
@@ -260,6 +260,11 @@ export class CoreManager {
     const flavorMode = isCutInFlavorMode();
     const hasCutInTextCandidate = this.recentEmojis.some((e) => e.cutInText);
 
+    // 開始STRONG_GUARANTEE_MS経過時点でまだ一度も強ボスが出現していなければ、
+    // 強ボスが出現できるようになるまで他のボスの新規出現も止める(=強制的に
+    // 強ボスを出現させるまでの「待ち」にする)。強ボス出現後は通常通り。
+    const mustForceStrong = !this.hasStrongSpawned && survivedMs >= STRONG_GUARANTEE_MS;
+
     // 強ボスは、中ボスが既にいる間は新たに出現させない(強ボスの激しい弾幕と
     // 中ボスの弾幕が重なると理不尽になりやすいため)。逆(強ボスがいる状態で
     // 中ボスが新たに出現すること)は許容する。また、開始20秒間は強ボス自体を
@@ -269,6 +274,10 @@ export class CoreManager {
       if (this.countByTier(tier) >= TIER_CONFIG[tier].maxSimultaneous) return false;
       if (tier === "strong" && this.countByTier("mid") > 0) return false;
       if (!flavorMode && tier !== "weak" && !hasCutInTextCandidate) return false;
+      // 強ボス保証待ちの間は、強ボス以外の新規出現を止める(その状況が
+      // 解除されてeligibleTiersに"strong"が入ってくるまでは何も出現しない、
+      // 次回以降のtrySpawnで再度この判定を試みる)。
+      if (mustForceStrong && tier !== "strong") return false;
       return true;
     });
     if (eligibleTiers.length === 0) {
@@ -276,13 +285,6 @@ export class CoreManager {
       return;
     }
 
-    // 開始1分経過時点でまだ一度も強ボスが出現していなければ、通常の
-    // 重み付き抽選を無視して強制的に強ボスを出現させる。ただし上の
-    // eligibleTiersの絞り込みで強ボスが出現できない状況(中ボスがいる、
-    // カットイン本文候補が無い等)なら、その状況が解除されて
-    // eligibleTiersに"strong"が入ってくるまで、この回では通常抽選に任せる
-    // (次回以降のtrySpawnで再度この判定を試みる)。
-    const mustForceStrong = !this.hasStrongSpawned && survivedMs >= STRONG_GUARANTEE_MS;
     const tier =
       mustForceStrong && eligibleTiers.includes("strong")
         ? "strong"

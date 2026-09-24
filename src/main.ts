@@ -488,6 +488,8 @@ function fitCauseShortcodeFontSize(el: HTMLElement): void {
 // 撃墜演出(画面揺れ・爆発・白フラッシュ・弾の吹き飛び)。DANMAKUSKYらしく、
 // 「やられたこと自体がちょっと笑える」くらい過剰にする。通常プレイ中の
 // 弾幕の見た目・難易度には一切影響しない、死亡確定後の見せ場だけの演出。
+// 同じ爆発描画(spawnExplosion/drawExplosion)は、強ボス撃破時の
+// (自機撃墜ほど派手ではない)小さめの爆発にも使い回す。
 const DEATH_SHAKE_MS = 700;
 const DEATH_SHAKE_MAGNITUDE_PX = 50;
 const DEATH_EFFECT_MS = 800;
@@ -498,27 +500,75 @@ const DEATH_BLOWBACK_RANDOM_SPEED = 400;
 // 止まる等)で発火しなかった場合に、結果画面へ進めなくなるのを防ぐ上限。
 const DEATH_SFX_TIMEOUT_MS = 2500;
 
-interface DeathParticle {
+// 強ボス撃破時の、自機撃墜より控えめな爆発・画面揺れ。
+const BOSS_EXPLOSION_MS = 450;
+const BOSS_EXPLOSION_PARTICLE_COUNT = 18;
+const BOSS_SHAKE_MS = 250;
+const BOSS_SHAKE_MAGNITUDE_PX = 12;
+
+interface ExplosionParticle {
   angle: number;
   speed: number;
 }
 
+interface ExplosionOptions {
+  durationMs: number;
+  particleCount: number;
+  baseRadius: number;
+  radiusGrowth: number;
+  ringMaxRadius: number;
+  particleMinSpeed: number;
+  particleRandomSpeed: number;
+}
+
+interface ExplosionEffect extends ExplosionOptions {
+  x: number;
+  y: number;
+  startedAt: number;
+  particles: ExplosionParticle[];
+}
+
 let shakeEndsAt = 0;
-let deathEffect: { x: number; y: number; startedAt: number; particles: DeathParticle[] } | null = null;
+let shakeDurationMs = 0;
+let shakeMagnitudePx = 0;
+let explosionEffect: ExplosionEffect | null = null;
+// gameOver後もtick()に描画を続けさせる(=フリーズ演出)べき時刻。
+// 自機撃墜専用で、強ボス撃破時の小さい爆発ではセットしない。
+let deathEffectEndsAt = 0;
+
+// 画面揺れを(再)始動する。死亡演出・ボス撃破演出の両方で使う。
+function triggerShake(now: number, durationMs: number, magnitudePx: number): void {
+  shakeEndsAt = now + durationMs;
+  shakeDurationMs = durationMs;
+  shakeMagnitudePx = magnitudePx;
+}
+
+function spawnExplosion(x: number, y: number, now: number, opts: ExplosionOptions): void {
+  const particles: ExplosionParticle[] = [];
+  for (let i = 0; i < opts.particleCount; i++) {
+    particles.push({
+      angle: Math.random() * Math.PI * 2,
+      speed: opts.particleMinSpeed + Math.random() * opts.particleRandomSpeed,
+    });
+  }
+  explosionEffect = { ...opts, x, y, startedAt: now, particles };
+}
 
 // 被弾位置を中心に、画面上に残っている弾を全方位へ吹き飛ばす(見た目だけの
 // 演出で、この時点でgame.gameOverは既にtrueなためgame.update()はもう
 // 弾の位置を進めない。tick()側で手動であと少しだけ位置を進める)。
 function triggerDeathEffect(x: number, y: number, now: number, bullets: { x: number; y: number; vx: number; vy: number }[]): void {
-  const particles: DeathParticle[] = [];
-  for (let i = 0; i < DEATH_PARTICLE_COUNT; i++) {
-    particles.push({
-      angle: Math.random() * Math.PI * 2,
-      speed: DEATH_BLOWBACK_MIN_SPEED * 0.6 + Math.random() * DEATH_BLOWBACK_RANDOM_SPEED,
-    });
-  }
-  deathEffect = { x, y, startedAt: now, particles };
-  shakeEndsAt = now + DEATH_SHAKE_MS;
+  spawnExplosion(x, y, now, {
+    durationMs: DEATH_EFFECT_MS,
+    particleCount: DEATH_PARTICLE_COUNT,
+    baseRadius: 20,
+    radiusGrowth: 110,
+    ringMaxRadius: 280,
+    particleMinSpeed: DEATH_BLOWBACK_MIN_SPEED * 0.6,
+    particleRandomSpeed: DEATH_BLOWBACK_RANDOM_SPEED,
+  });
+  deathEffectEndsAt = now + DEATH_EFFECT_MS;
+  triggerShake(now, DEATH_SHAKE_MS, DEATH_SHAKE_MAGNITUDE_PX);
 
   for (const b of bullets) {
     const angle = Math.atan2(b.y - y, b.x - x) || Math.random() * Math.PI * 2;
@@ -534,42 +584,64 @@ function triggerDeathEffect(x: number, y: number, now: number, bullets: { x: num
   deathFlash.classList.add("flash");
 }
 
-function drawDeathEffect(now: number): void {
-  if (!deathEffect) return;
-  const elapsed = now - deathEffect.startedAt;
-  if (elapsed >= DEATH_EFFECT_MS) {
-    deathEffect = null;
+// 強ボス撃破時の控えめな爆発+軽い画面揺れ(自機撃墜と違い、弾の吹き飛び・
+// 白フラッシュ・gameScreenの表示継続は行わない、通常プレイ中の一演出)。
+function triggerBossExplosion(x: number, y: number, now: number): void {
+  spawnExplosion(x, y, now, {
+    durationMs: BOSS_EXPLOSION_MS,
+    particleCount: BOSS_EXPLOSION_PARTICLE_COUNT,
+    baseRadius: 14,
+    radiusGrowth: 55,
+    ringMaxRadius: 130,
+    particleMinSpeed: 150,
+    particleRandomSpeed: 250,
+  });
+  triggerShake(now, BOSS_SHAKE_MS, BOSS_SHAKE_MAGNITUDE_PX);
+}
+
+function drawExplosion(now: number): void {
+  if (!explosionEffect) return;
+  const e = explosionEffect;
+  const rawElapsed = now - e.startedAt;
+  if (rawElapsed >= e.durationMs) {
+    explosionEffect = null;
     return;
   }
-  const t = elapsed / DEATH_EFFECT_MS;
-  const { x, y } = deathEffect;
+  // startedAtはコールバックの奥(game.update()実行中)でperformance.now()を
+  // 取得しているため、同じフレーム内でtick()側が使うnow(フレーム開始時点の
+  // 値)よりわずかに新しくなることがある。その場合elapsedが一瞬だけ負になり、
+  // 半径が負のままctx.arc()に渡って例外(全ブラウザ共通でIndexSizeError)が
+  // 発生し、requestAnimationFrameの再帰ごと止まって画面が固まっていた。
+  // 0未満にならないようクランプする。
+  const elapsed = Math.max(0, rawElapsed);
+  const t = Math.min(1, elapsed / e.durationMs);
+  const alpha = Math.max(0, 1 - t);
 
   // 中心の爆発(白→オレンジ→透明のグロー)。
-  const coreRadius = 20 + t * 110;
-  const coreAlpha = Math.max(0, 1 - t);
-  const gradient = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
-  gradient.addColorStop(0, `rgba(255, 255, 255, ${coreAlpha})`);
-  gradient.addColorStop(0.4, `rgba(255, 200, 80, ${coreAlpha * 0.8})`);
+  const coreRadius = e.baseRadius + t * e.radiusGrowth;
+  const gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, coreRadius);
+  gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+  gradient.addColorStop(0.4, `rgba(255, 200, 80, ${alpha * 0.8})`);
   gradient.addColorStop(1, "rgba(255, 80, 40, 0)");
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+  ctx.arc(e.x, e.y, coreRadius, 0, Math.PI * 2);
   ctx.fill();
 
   // 衝撃波リング。
-  const ringRadius = t * 280;
+  const ringRadius = t * e.ringMaxRadius;
   ctx.beginPath();
-  ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(255, 255, 255, ${coreAlpha * 0.8})`;
+  ctx.arc(e.x, e.y, ringRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
   ctx.lineWidth = 6 * (1 - t) + 1;
   ctx.stroke();
 
   // 飛び散る破片パーティクル。
-  for (const p of deathEffect.particles) {
+  for (const p of e.particles) {
     const dist = p.speed * (elapsed / 1000);
     ctx.beginPath();
-    ctx.arc(x + Math.cos(p.angle) * dist, y + Math.sin(p.angle) * dist, 3 * (1 - t) + 1, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 210, 90, ${coreAlpha})`;
+    ctx.arc(e.x + Math.cos(p.angle) * dist, e.y + Math.sin(p.angle) * dist, 3 * (1 - t) + 1, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 210, 90, ${alpha})`;
     ctx.fill();
   }
 }
@@ -577,9 +649,9 @@ function drawDeathEffect(now: number): void {
 // canvas自体をCSS transformで揺らす(ゲームロジックの座標系には一切触れない)。
 function applyScreenShake(now: number): void {
   if (now < shakeEndsAt) {
-    const power = (shakeEndsAt - now) / DEATH_SHAKE_MS;
-    const dx = (Math.random() - 0.5) * 2 * DEATH_SHAKE_MAGNITUDE_PX * power;
-    const dy = (Math.random() - 0.5) * 2 * DEATH_SHAKE_MAGNITUDE_PX * power;
+    const power = (shakeEndsAt - now) / shakeDurationMs;
+    const dx = (Math.random() - 0.5) * 2 * shakeMagnitudePx * power;
+    const dy = (Math.random() - 0.5) * 2 * shakeMagnitudePx * power;
     canvas.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
   } else if (canvas.style.transform) {
     canvas.style.transform = "";
@@ -690,8 +762,12 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
       onGameOver: showGameOver,
       onCoreDefeated: (core) => {
         flashCoreMessage(randomCoreDefeatLine());
-        if (core.tier === "strong") playStrongBossDownSfx();
-        else playWeakOrMidBossDownSfx();
+        if (core.tier === "strong") {
+          playStrongBossDownSfx();
+          triggerBossExplosion(core.x, core.y, performance.now());
+        } else {
+          playWeakOrMidBossDownSfx();
+        }
       },
       onCoreSpawned: (core) => enqueueCutIn(core),
       onSwarmerDefeated: () => {
@@ -753,7 +829,7 @@ function tick(now: number): void {
   // ゲームオーバー直後は、撃墜演出(DEATH_EFFECT_MS)が終わるまでgameScreenを
   // 表示したまま描画し続ける(showGameOver側でgameScreen.hidden=trueに
   // なるのは自機撃墜.mp3が鳴り終わってから)。
-  const inDeathEffect = !!game?.gameOver && !!deathEffect;
+  const inDeathEffect = !!game?.gameOver && now < deathEffectEndsAt;
   if (game && input && (!game.gameOver || inDeathEffect)) {
     if (!paused && !game.gameOver) {
       const t = gameNow();
@@ -780,7 +856,9 @@ function tick(now: number): void {
     drawPlayerBullets(ctx, game.playerBullets);
     // 死亡後は自機を出したままにせず、爆発演出に主役を譲る。
     if (!game.gameOver) drawPlayer(ctx, game.player, now);
-    if (inDeathEffect) drawDeathEffect(now);
+    // 通常プレイ中はボス撃破の小さい爆発、死亡直後は撃墜の大きい爆発を
+    // 同じ仕組み(explosionEffect)で描画する。
+    drawExplosion(now);
     densityWarning.hidden = paused || !game.isStreamOverflowing(now);
   } else {
     densityWarning.hidden = true;
