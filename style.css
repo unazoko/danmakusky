@@ -1526,8 +1526,7 @@ body::before {
    見えるため、他のボタン(#pauseButton・.controls-help等)と同じく
    半透明の背景+縁取り+発光する文字のスタイルに揃える。 */
 #backToTitleButton,
-#retryButton,
-#shareButton {
+#retryButton {
     width: 100%;
     background: rgba(124, 247, 255, 0.08);
     color: #7cf7ff;
@@ -1541,19 +1540,87 @@ body::before {
     text-shadow: 0 0 8px rgba(124, 247, 255, 0.5);
 }
 #backToTitleButton {
-    background: transparent;
-    color: #8fa3ad;
-    border: 1px solid #2a3a42;
+    background: rgba(143, 163, 173, 0.06);
+    color: #c3d1d8;
+    border: 1px solid #48606c;
     text-shadow: none;
 }
-#shareButton {
-    background: rgba(240, 193, 0, 0.08);
-    color: #f0c100;
-    border: 1px solid rgba(240, 193, 0, 0.5);
-    text-shadow: 0 0 8px rgba(240, 193, 0, 0.5);
-}
 #backToTitleButton:active,
-#retryButton:active,
-#shareButton:active {
+#retryButton:active {
     transform: translateY(1px);
+}
+
+/* 「結果を投稿する」のアイコンボタン群。中央揃えで、Misskeyアイコン単独の行
+   (share-heading直下)と、Bluesky・X(「ついった」の文字ボタン)を並べた行の
+   2段にする。ブランドアイコン自体(misskey.svg/bluesky.svg)は公式配布の
+   白一色素材をそのまま使い、色を変えたりはしない(icons.ts参照)。 */
+.share-heading {
+    margin: 4px 0 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #8fa3ad;
+    letter-spacing: 0.05em;
+}
+.share-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+.share-icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: rgba(124, 247, 255, 0.08);
+    color: #7cf7ff;
+    border: 1px solid rgba(124, 247, 255, 0.5);
+    border-radius: 4px;
+    cursor: pointer;
+}
+.share-icon-button:active {
+    transform: translateY(1px);
+}
+.share-icon-button .icon {
+    width: 22px;
+    height: 22px;
+}
+/* 連合TLを使う遊びなので、投稿先として一番実用的なMisskeyのボタンだけ
+   目立つように大きくする。「もう一度遊ぶ」ボタン(.result-buttonsの幅
+   240px)と同じ横幅にし、下の行(Blueskyボタン115px + gap10px + ついった
+   ボタン115px = 240px)も左右端が揃うよう調整する。 */
+#shareButton {
+    width: 240px;
+    padding: 0 14px;
+    /* Misskey公式サイト(misskey-hub.net)のtheme-colorに使われている緑
+       (#9ad11b)を枠線・背景に使い、贔屓先だと分かるようにする。box-shadowで
+       ネオンサインのような発光感を出す。 */
+    background: rgba(154, 209, 27, 0.16);
+    border-color: rgba(154, 209, 27, 0.9);
+    box-shadow:
+        0 0 6px rgba(154, 209, 27, 0.8),
+        0 0 16px rgba(154, 209, 27, 0.5),
+        0 0 32px rgba(154, 209, 27, 0.3),
+        inset 0 0 8px rgba(154, 209, 27, 0.3);
+}
+#shareButton .icon {
+    width: auto;
+    height: 22px;
+    /* ロゴ本体(白塗り)にも緑のグローを添えて発光しているように見せる。 */
+    filter: drop-shadow(0 0 4px rgba(154, 209, 27, 0.9));
+}
+/* Xだけはアイコンの代わりに文言(「ついった」)にするため、正方形ではなく
+   横に伸びるテキストボタンにする。Blueskyの横幅もこれに揃える。 */
+.share-text-button {
+    width: auto;
+    padding: 0 16px;
+    font: inherit;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 8px rgba(124, 247, 255, 0.5);
+}
+#shareBlueskyButton,
+#shareXButton {
+    width: 115px;
 }

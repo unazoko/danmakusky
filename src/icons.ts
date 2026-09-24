@@ -17,6 +17,12 @@ import chevronDown from "lucide-static/icons/chevron-down.svg?raw";
 import messageSquare from "lucide-static/icons/message-square.svg?raw";
 import messageSquareOff from "lucide-static/icons/message-square-off.svg?raw";
 import settings from "lucide-static/icons/settings.svg?raw";
+// Misskey・Blueskyの公式ブランドアイコン(それぞれCC BY-SAライセンス、
+// 公式ブランドガイドラインで単体アイコンとしての使用が認められている
+// 白一色の素材をそのまま使用。lucideのアイコンと違いcurrentColor化はせず、
+// 公式配布のfill値のまま埋め込む)。
+import misskey from "./assets/misskey.svg?raw";
+import bluesky from "./assets/bluesky.svg?raw";
 
 const ICONS = {
   "book-open": bookOpen,
@@ -35,6 +41,8 @@ const ICONS = {
   "message-square": messageSquare,
   "message-square-off": messageSquareOff,
   settings,
+  misskey,
+  bluesky,
 } as const;
 
 export type IconName = keyof typeof ICONS;

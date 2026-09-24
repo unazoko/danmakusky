@@ -15,7 +15,14 @@ import {
 import { InputController } from "./input.js";
 import { GameState, INITIAL_LIFE, type GameOverInfo } from "./game/loop.js";
 import { formatTime } from "./format.js";
-import { buildShareText, openShareForm } from "./share.js";
+import {
+  buildMisskeyShareText,
+  buildBlueskyShareText,
+  buildXShareText,
+  openMisskeyShareForm,
+  openBlueskyShareForm,
+  openXShareForm,
+} from "./share.js";
 import { getHighScore, updateHighScore, clearHighScore } from "./storage.js";
 import { ReactionTracker } from "./reactionTracker.js";
 import { NoteRateTracker } from "./noteRate.js";
@@ -90,6 +97,12 @@ const highScoreLine = $<HTMLParagraphElement>("#highScoreLine");
 const backToTitleButton = $<HTMLButtonElement>("#backToTitleButton");
 const retryButton = $<HTMLButtonElement>("#retryButton");
 const shareButton = $<HTMLButtonElement>("#shareButton");
+const shareButtonIcon = $<HTMLSpanElement>("#shareButtonIcon");
+const shareBlueskyButton = $<HTMLButtonElement>("#shareBlueskyButton");
+const shareBlueskyButtonIcon = $<HTMLSpanElement>("#shareBlueskyButtonIcon");
+const shareXButton = $<HTMLButtonElement>("#shareXButton");
+shareButtonIcon.append(createIcon("misskey"));
+shareBlueskyButtonIcon.append(createIcon("bluesky"));
 const viewNoteButton = $<HTMLButtonElement>("#viewNoteButton");
 const densityWarning = $<HTMLDivElement>("#densityWarning");
 const bootSequence = $<HTMLDivElement>("#bootSequence");
@@ -1299,14 +1312,36 @@ viewNoteButton.onclick = () => {
   window.open(url, "_blank", "noopener");
 };
 
-// 投稿は必ずこのボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。
+// 投稿は必ず各ボタンを押したユーザー操作からのみ行う(自動投稿は絶対にしない)。
 shareButton.onclick = () => {
   if (!lastGameOverInfo) return;
-  const text = buildShareText({
+  const text = buildMisskeyShareText({
     score: lastGameOverInfo.score,
     survivedMs: lastGameOverInfo.survivedMs,
     causeShortcode: lastGameOverInfo.causeShortcode,
     grazeCount: lastGameOverInfo.grazeCount,
   });
-  openShareForm(text, location.href);
+  openMisskeyShareForm(text, location.href);
+};
+
+shareBlueskyButton.onclick = () => {
+  if (!lastGameOverInfo) return;
+  const text = buildBlueskyShareText({
+    score: lastGameOverInfo.score,
+    survivedMs: lastGameOverInfo.survivedMs,
+    causeShortcode: lastGameOverInfo.causeShortcode,
+    grazeCount: lastGameOverInfo.grazeCount,
+  });
+  openBlueskyShareForm(text, location.href);
+};
+
+shareXButton.onclick = () => {
+  if (!lastGameOverInfo) return;
+  const text = buildXShareText({
+    score: lastGameOverInfo.score,
+    survivedMs: lastGameOverInfo.survivedMs,
+    causeShortcode: lastGameOverInfo.causeShortcode,
+    grazeCount: lastGameOverInfo.grazeCount,
+  });
+  openXShareForm(text, location.href);
 };
