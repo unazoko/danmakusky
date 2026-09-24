@@ -69,6 +69,10 @@ export interface Bullet {
   // (main.ts参照)。コア(ボス)の攻撃弾は、そのコアが出現するきっかけと
   // なった投稿のリンクを引き継ぐ(coreManager.ts参照)。
   noteUrl: string | null;
+  // trueならコア(ボス)から発射された弾。極端に横長の絵文字だと画面を
+  // 埋め尽くしかねないため、描画時のみ縦横比の上限を設けて縮小する
+  // (render.ts参照、通常弾には適用しない)。
+  isBossBullet?: boolean;
 }
 
 // コアの強さの階級。

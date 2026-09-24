@@ -36,15 +36,74 @@ function scaledWidthForHeight(img: HTMLImageElement, height: number): number {
   return (img.naturalWidth / img.naturalHeight) * height;
 }
 
+// ボス(コア)から発射される弾専用の縦横比上限。極端に横長の絵文字
+// (縦横比1:4超)がそのまま弾になると画面を埋め尽くしかねないため、
+// 縦横比を維持したまま「1:4のときの横幅」を上限に縮小して描画する
+// (縦横比が1:4以下の絵文字や、通常弾・コア本体・自機には影響しない)。
+const BOSS_BULLET_MAX_ASPECT = 4;
+
+// 指定した縦横比の上限(maxAspect)を超えない範囲で、縦横比を維持した
+// 描画サイズを返す。上限を超える場合は横幅をmaxAspect*boxSizeまで
+// 縮小し、縦幅もそれに合わせて縦横比なりに縮む(=全体が小さくなる)。
+function boxSizeFor(
+  img: HTMLImageElement,
+  boxSize: number,
+  maxAspect: number,
+): { width: number; height: number } {
+  const ratio = img.naturalWidth / img.naturalHeight;
+  if (ratio <= maxAspect) return { width: ratio * boxSize, height: boxSize };
+  const width = maxAspect * boxSize;
+  return { width, height: width / ratio };
+}
+
 function drawImageMatchHeight(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   x: number,
   y: number,
   boxSize: number,
+  maxAspect: number = Infinity,
 ): void {
-  const w = scaledWidthForHeight(img, boxSize);
-  ctx.drawImage(img, x - w / 2, y - boxSize / 2, w, boxSize);
+  const { width, height } = boxSizeFor(img, boxSize, maxAspect);
+  ctx.drawImage(img, x - width / 2, y - height / 2, width, height);
+}
+
+// 画像がまだ読み込めていない(ロード中・失敗いずれも)場合の仮図形の色。
+// 自機は六角形、敵(コアの本体・弾)は三角形にする。何も描かないと
+// 「見えない弾/敵」になってしまうための保険。
+const PLAYER_FALLBACK_COLOR = "rgba(124, 247, 255, 0.9)";
+const ENEMY_FALLBACK_COLOR = "rgba(255, 110, 110, 0.9)";
+
+function drawFallbackPolygon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  sides: number,
+  color: string,
+): void {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const angle = -Math.PI / 2 + (Math.PI * 2 * i) / sides;
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function drawPlayerFallback(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+  drawFallbackPolygon(ctx, x, y, radius, 6, PLAYER_FALLBACK_COLOR);
+}
+
+function drawEnemyFallback(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+  drawFallbackPolygon(ctx, x, y, radius, 3, ENEMY_FALLBACK_COLOR);
 }
 
 // 自機絵文字がまだ決まっていない(投稿が来ずタイムアウトした等)ときの
@@ -60,7 +119,13 @@ export function randomCachedEmojiImage(): HTMLImageElement | null {
 // 一目で分かるようにする。
 export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[], now: number): void {
   for (const b of bullets) {
-    if (!isImageReady(b.img)) continue;
+    if (!isImageReady(b.img)) {
+      // 画像が取得できない敵弾を透明にしない(見えない弾になってしまうため)。
+      drawEnemyFallback(ctx, b.x, b.y, b.size * 0.55);
+      continue;
+    }
+
+    const maxAspect = b.isBossBullet ? BOSS_BULLET_MAX_ASPECT : Infinity;
 
     if (b.isLifeUp) {
       const pulse = 0.6 + 0.4 * Math.sin(now / 120);
@@ -74,15 +139,16 @@ export function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bul
     } else {
       // 黒っぽい絵文字が背景(黒)に溶け込んで見えなくなるのを防ぐため、
       // 弾の背後に薄い白いハローを敷く(明るい絵文字にはほぼ影響しない)。
-      // 横長の絵文字は横幅もそれに合わせて楕円にする。
-      const haloWidth = scaledWidthForHeight(b.img, b.size);
+      // 横長の絵文字は横幅もそれに合わせて楕円にする(ボス弾は縦横比上限後の
+      // サイズに合わせる)。
+      const { width: haloWidth, height: haloHeight } = boxSizeFor(b.img, b.size, maxAspect);
       ctx.beginPath();
-      ctx.ellipse(b.x, b.y, haloWidth * 0.5, b.size * 0.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(b.x, b.y, haloWidth * 0.5, haloHeight * 0.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
       ctx.fill();
     }
 
-    drawImageMatchHeight(ctx, b.img, b.x, b.y, b.size);
+    drawImageMatchHeight(ctx, b.img, b.x, b.y, b.size, maxAspect);
   }
 }
 
@@ -92,15 +158,21 @@ export function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, now: n
   const isInvincible = now < player.invincibleUntil;
   const blinkVisible = !isInvincible || Math.floor(now / 100) % 2 === 0;
 
-  if (blinkVisible && player.emojiImg && isImageReady(player.emojiImg)) {
-    // 弾・コアと同様、黒っぽい絵文字が背景に溶け込まないよう薄い白いハローを
-    // 敷く(横長の絵文字は横幅もそれに合わせて楕円にする)。
-    const haloWidth = scaledWidthForHeight(player.emojiImg, player.spriteSize);
-    ctx.beginPath();
-    ctx.ellipse(player.x, player.y, haloWidth * 0.45, player.spriteSize * 0.45, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
-    ctx.fill();
-    drawImageMatchHeight(ctx, player.emojiImg, player.x, player.y, player.spriteSize);
+  if (blinkVisible) {
+    if (player.emojiImg && isImageReady(player.emojiImg)) {
+      // 弾・コアと同様、黒っぽい絵文字が背景に溶け込まないよう薄い白いハローを
+      // 敷く(横長の絵文字は横幅もそれに合わせて楕円にする)。
+      const haloWidth = scaledWidthForHeight(player.emojiImg, player.spriteSize);
+      ctx.beginPath();
+      ctx.ellipse(player.x, player.y, haloWidth * 0.45, player.spriteSize * 0.45, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.fill();
+      drawImageMatchHeight(ctx, player.emojiImg, player.x, player.y, player.spriteSize);
+    } else {
+      // 自機絵文字が未取得の場合、自機自体が見えなくなってしまわないよう
+      // 仮図形(六角形)を表示する。
+      drawPlayerFallback(ctx, player.x, player.y, player.spriteSize * 0.5);
+    }
   }
 
   if (player.focused) {
@@ -146,6 +218,10 @@ export function drawCore(ctx: CanvasRenderingContext2D, core: Core): void {
     ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
     ctx.fill();
     drawImageMatchHeight(ctx, core.img, core.x, core.y, core.spriteSize);
+  } else {
+    // コア絵文字が未取得の場合、ボス自体が見えなくなってしまわないよう
+    // 仮図形(三角形)を表示する。
+    drawEnemyFallback(ctx, core.x, core.y, core.spriteSize * 0.5);
   }
 
   const barWidth = core.spriteSize * 1.4;

@@ -172,6 +172,7 @@ export class CoreManager {
       behavior: { kind: "linear" },
       isLifeUp: true,
       noteUrl: core.noteUrl,
+      isBossBullet: true,
     });
   }
 
@@ -460,6 +461,7 @@ export class CoreManager {
         spawnedAt: now,
         behavior: { kind: "linear" },
         noteUrl: core.noteUrl,
+        isBossBullet: true,
       });
     }
   }
