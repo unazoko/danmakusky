@@ -38,9 +38,9 @@ function scaledWidthForHeight(img: HTMLImageElement, height: number): number {
 
 // ボス(コア)から発射される弾専用の縦横比上限。極端に横長の絵文字
 // (縦横比1:4超)がそのまま弾になると画面を埋め尽くしかねないため、
-// 縦横比を維持したまま「1:4のときの横幅」を上限に縮小して描画する
-// (縦横比が1:4以下の絵文字や、通常弾・コア本体・自機には影響しない)。
-const BOSS_BULLET_MAX_ASPECT = 4;
+// 縦横比を維持したまま「1:7のときの横幅」を上限に縮小して描画する
+// (縦横比が1:7以下の絵文字や、通常弾・コア本体・自機には影響しない)。
+const BOSS_BULLET_MAX_ASPECT = 7;
 
 // 指定した縦横比の上限(maxAspect)を超えない範囲で、縦横比を維持した
 // 描画サイズを返す。上限を超える場合は横幅をmaxAspect*boxSizeまで

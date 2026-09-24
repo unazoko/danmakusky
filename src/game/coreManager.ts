@@ -19,6 +19,7 @@ import {
   crossBurstVelocities,
   spiralArmVelocities,
   flowerBurstVelocities,
+  randomSpeed,
   type Velocity,
 } from "./patterns.js";
 import { getOrLoadEmojiImage } from "../render.js";
@@ -42,8 +43,8 @@ interface TierConfig {
 //     攻撃も一番激しい
 const TIER_CONFIG: Record<CoreTier, TierConfig> = {
   weak: { maxHp: 40, maxSimultaneous: 3, spriteSize: 44, hitRadius: 20, moves: true, spawnWeight: 60, attackIntervalMs: 1000, lifeUpDropChance: 0.5 },
-  mid: { maxHp: 110, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.75 },
-  strong: { maxHp: 200, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 8, attackIntervalMs: 600, lifeUpDropChance: 1 },
+  mid: { maxHp: 140, maxSimultaneous: 2, spriteSize: 60, hitRadius: 27, moves: true, spawnWeight: 35, attackIntervalMs: 800, lifeUpDropChance: 0.75 },
+  strong: { maxHp: 280, maxSimultaneous: 1, spriteSize: 76, hitRadius: 34, moves: true, spawnWeight: 15, attackIntervalMs: 550, lifeUpDropChance: 1 },
 };
 
 // このショートコードはボスにせず通常弾のみとする(指定による除外)。
@@ -67,7 +68,7 @@ const DOUBLE_LASER_ANGLE_OFFSET_RAD = (12 * Math.PI) / 180;
 // ため)。その代わり、互いに近づく組み合わせを引いた場合でも2本が成す角度が
 // MIN_LASER_ANGLE_GAP_RADより狭くなったり交差したりしないよう、
 // そこに達する時刻で両方とも回転を止める(angleFreezeAt、下記参照)。
-const LASER_SWEEP_UNLOCK_MS = 2 * 60 * 1000;
+const LASER_SWEEP_UNLOCK_MS = 1.5 * 60 * 1000;
 const LASER_SWEEP_SPEED_RAD_PER_SEC = (15 * Math.PI) / 180;
 const MIN_LASER_ANGLE_GAP_RAD = (14 * Math.PI) / 180;
 
@@ -95,14 +96,14 @@ const LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC = Math.PI * 4;
 
 // 中ボスは倒し切れなくても一定時間で自動消滅する(撃破扱いにはしない、報酬もなし)。
 // 消える直前はフワッとフェードアウトさせる(render.ts参照)。
-const MID_LIFESPAN_MS = 15000;
+const MID_LIFESPAN_MS = 22000;
 const MID_FADE_MS = 300;
 
 // 開始直後20秒間は強ボスを出現させない。また、開始1分30秒経過時点で
 // まだ一度も強ボスが出現していなければ、その時点(または既存の「強ボスが
 // 出現できない状況」が解除された直後)に強制的に出現させる(trySpawn参照)。
 const STRONG_MIN_SPAWN_MS = 20000;
-const STRONG_GUARANTEE_MS = 90000;
+const STRONG_GUARANTEE_MS = 60000;
 
 const BASE_SPAWN_INTERVAL_MS = 4000;
 // intensityが大きくなっても攻撃間隔が0に近づいて理不尽にならないよう設ける下限。
@@ -191,7 +192,7 @@ export class CoreManager {
       (c) => c.tier !== "weak" || c.y < canvasHeight + WEAK_CULL_MARGIN_PX,
     );
 
-    // 中ボスは20秒で自動消滅する(倒し切れなくても、撃破扱い・報酬なしで
+    // 中ボスは一定時間で自動消滅する(倒し切れなくても、撃破扱い・報酬なしで
     // 静かに消える。フェードアウトの見た目はrender.ts側で処理する)。
     this.cores = this.cores.filter((c) => c.expiresAt === undefined || now < c.expiresAt);
   }
@@ -200,18 +201,21 @@ export class CoreManager {
   // (弱=0%、中=50%、強=100%)。
   private dropLifeUpItem(core: Core, now: number, bullets: Bullet[]): void {
     if (Math.random() >= TIER_CONFIG[core.tier].lifeUpDropChance) return;
-    // 中・強ボスの回復弾は、2秒間はそのまま落下させた後、自機へ素早く
-    // 向かうようにする(弱ボスはlifeUpDropChance=0なのでここには来ない)。
+    // 強ボスの回復弾のみ、一定時間そのまま落下させた後、自機が静止している
+    // 間だけ素早く追尾する(弱・中ボスの回復弾はどちらも追尾しない、単純な
+    // 落下のまま)。自機が動いている間は追尾せず、直前の向きのまま通常弾と
+    // 同じ速度(normalSpeed)で直進する(bulletMotion.ts参照)。
     const behavior: BulletBehavior =
-      core.tier === "weak"
-        ? { kind: "linear" }
-        : {
+      core.tier === "strong"
+        ? {
             kind: "delayedHoming",
             triggerAt: now + LIFEUP_HOMING_DELAY_MS,
             speed: LIFEUP_HOMING_SPEED,
             turnRateRadPerSec: LIFEUP_HOMING_TURN_RATE_RAD_PER_SEC,
             triggered: false,
-          };
+            normalSpeed: randomSpeed(),
+          }
+        : { kind: "linear" };
     bullets.push({
       id: createBulletId(),
       img: core.img,
@@ -272,7 +276,7 @@ export class CoreManager {
       return;
     }
 
-    // 開始1分30秒経過時点でまだ一度も強ボスが出現していなければ、通常の
+    // 開始1分経過時点でまだ一度も強ボスが出現していなければ、通常の
     // 重み付き抽選を無視して強制的に強ボスを出現させる。ただし上の
     // eligibleTiersの絞り込みで強ボスが出現できない状況(中ボスがいる、
     // カットイン本文候補が無い等)なら、その状況が解除されて

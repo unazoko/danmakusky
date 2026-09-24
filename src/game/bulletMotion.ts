@@ -17,12 +17,15 @@ function normalizeAngle(angle: number): number {
 const ORBIT_RELEASE_MS = 4000;
 
 // spawnedはsplitter発動時に増える弾を積む先(呼び出し側でbullets配列へ追加する)。
+// playerMovingは自機が今動いているかどうか(delayedHoming専用、追尾するか
+// 直前の向きを保つかの切り替えに使う、呼び出し側=loop.ts参照)。
 export function updateBullet(
   b: Bullet,
   dtSec: number,
   now: number,
   playerX: number,
   playerY: number,
+  playerMoving: boolean,
   spawned: Bullet[],
 ): void {
   const behavior = b.behavior;
@@ -132,18 +135,25 @@ export function updateBullet(
     case "delayedHoming": {
       if (!behavior.triggered && now >= behavior.triggerAt) {
         behavior.triggered = true;
-        const angle = Math.atan2(playerY - b.y, playerX - b.x);
-        b.vx = Math.cos(angle) * behavior.speed;
-        b.vy = Math.sin(angle) * behavior.speed;
-      } else if (behavior.triggered) {
-        const targetAngle = Math.atan2(playerY - b.y, playerX - b.x);
-        const curAngle = Math.atan2(b.vy, b.vx);
-        const diff = normalizeAngle(targetAngle - curAngle);
-        const maxTurn = behavior.turnRateRadPerSec * dtSec;
-        const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
-        const newAngle = curAngle + turn;
-        b.vx = Math.cos(newAngle) * behavior.speed;
-        b.vy = Math.sin(newAngle) * behavior.speed;
+      }
+      if (behavior.triggered) {
+        if (playerMoving) {
+          // 自機が移動している間は追尾せず、直前の向きを保ったまま
+          // normalSpeed(通常弾と同じ速度)で直進する。
+          const curAngle = Math.atan2(b.vy, b.vx);
+          b.vx = Math.cos(curAngle) * behavior.normalSpeed;
+          b.vy = Math.sin(curAngle) * behavior.normalSpeed;
+        } else {
+          // 自機が静止している間は素早く追尾する。
+          const targetAngle = Math.atan2(playerY - b.y, playerX - b.x);
+          const curAngle = Math.atan2(b.vy, b.vx);
+          const diff = normalizeAngle(targetAngle - curAngle);
+          const maxTurn = behavior.turnRateRadPerSec * dtSec;
+          const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
+          const newAngle = curAngle + turn;
+          b.vx = Math.cos(newAngle) * behavior.speed;
+          b.vy = Math.sin(newAngle) * behavior.speed;
+        }
       }
       b.x += b.vx * dtSec;
       b.y += b.vy * dtSec;

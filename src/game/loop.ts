@@ -47,6 +47,9 @@ const SCORE_PER_SECOND = 100;
 const INVINCIBLE_MS = 1500;
 // 画面外に十分出た弾は削除する(このマージンより内側に戻ってくることはない前提)。
 const CULL_MARGIN_PX = 60;
+// 中・強ボスの回復弾(delayedHoming)が自機を「静止中」とみなす速度の上限
+// (これ以下ならフレーム間の微小な誤差も静止扱いにする)。
+const PLAYER_STATIONARY_SPEED_THRESHOLD_PX_PER_SEC = 5;
 
 const PLAYER_BULLET_SPEED = 420;
 const PLAYER_BULLET_RADIUS = 4;
@@ -127,6 +130,10 @@ export class GameState {
   private readonly swarmManager = new SwarmManager();
   private readonly squadronManager = new SquadronManager();
   private nextPlayerShotAt = 0;
+  // 中・強ボスの回復弾(delayedHoming)が「自機が静止しているか」を判定する
+  // ための、直前フレームの自機位置。
+  private lastPlayerX: number;
+  private lastPlayerY: number;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -144,6 +151,8 @@ export class GameState {
       invincibleUntil: 0,
       focused: false,
     };
+    this.lastPlayerX = this.player.x;
+    this.lastPlayerY = this.player.y;
   }
 
   get cores(): readonly Core[] {
@@ -191,7 +200,15 @@ export class GameState {
 
     input.update(this.player, dtSec);
     this.updatePlayerShooting(now, dtSec, input);
-    this.updateEnemyBullets(dtSec, now);
+
+    // 自機が「静止している」かどうか(delayedHoming用、微小なジッターは
+    // 静止扱いにするため速度[px/秒]に換算して閾値判定する)。
+    const playerSpeed = Math.hypot(this.player.x - this.lastPlayerX, this.player.y - this.lastPlayerY) / dtSec;
+    const playerMoving = playerSpeed > PLAYER_STATIONARY_SPEED_THRESHOLD_PX_PER_SEC;
+    this.lastPlayerX = this.player.x;
+    this.lastPlayerY = this.player.y;
+
+    this.updateEnemyBullets(dtSec, now, playerMoving);
 
     this.swarmManager.update(
       now,
@@ -307,10 +324,10 @@ export class GameState {
     this.playerBullets = this.playerBullets.filter((b) => b.y > -CULL_MARGIN_PX);
   }
 
-  private updateEnemyBullets(dtSec: number, now: number): void {
+  private updateEnemyBullets(dtSec: number, now: number, playerMoving: boolean): void {
     const spawned: Bullet[] = [];
     for (const b of this.bullets) {
-      updateBullet(b, dtSec, now, this.player.x, this.player.y, spawned);
+      updateBullet(b, dtSec, now, this.player.x, this.player.y, playerMoving, spawned);
     }
     if (spawned.length > 0) this.bullets.push(...spawned);
     this.bullets = this.bullets.filter((b) => !b.dead && this.isWithinCullBounds(b));

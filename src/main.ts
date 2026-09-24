@@ -1098,6 +1098,7 @@ shareButton.onclick = () => {
     score: lastGameOverInfo.score,
     survivedMs: lastGameOverInfo.survivedMs,
     causeShortcode: lastGameOverInfo.causeShortcode,
+    grazeCount: lastGameOverInfo.grazeCount,
   });
   openShareForm(text, location.href);
 };

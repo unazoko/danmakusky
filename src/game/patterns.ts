@@ -22,7 +22,9 @@ export interface SpawnedMotion {
 const MIN_SPEED = 90;
 const MAX_SPEED = 150;
 
-function randomSpeed(): number {
+// 通常弾と同じ速度範囲(中・強ボスの回復弾が自機の移動中に直進するときにも
+// 流用する、coreManager.ts参照)。
+export function randomSpeed(): number {
   return MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED);
 }
 

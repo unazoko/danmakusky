@@ -13,6 +13,7 @@ export interface ShareResultInput {
   score: number;
   survivedMs: number;
   causeShortcode: string | null;
+  grazeCount: number;
 }
 
 // 被撃墜理由は:shortcode:記法のまま埋め込む。共有先はユーザーが選ぶ任意の
@@ -25,8 +26,9 @@ export function buildShareText(input: ShareResultInput): string {
   return [
     "**連合TL弾幕スキー**　で遊びました。",
     "--------------",
-    `SCORE: ${input.score.toLocaleString()}`,
     `TIME: ${formatTime(input.survivedMs)}`,
+    `SCORE: ${input.score.toLocaleString()}`,
+    `GRAZE: ${input.grazeCount.toLocaleString()}`,
     `:${cause}: に撃墜されました。`,
     "--------------",
     "#DANMAKUSKY",

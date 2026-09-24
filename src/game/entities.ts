@@ -48,8 +48,17 @@ export type BulletBehavior =
   | { kind: "accel"; angle: number; speed: number; accelPxPerSec2: number; maxSpeed: number }
   // 指定時刻までは現在の速度のまま飛び、それ以降は自機を追い続ける
   // (中・強ボス撃破時の残機回復弾用。redirectと違い、トリガー後も
-  // プレイヤーの動きに追従し続ける)。
-  | { kind: "delayedHoming"; triggerAt: number; speed: number; turnRateRadPerSec: number; triggered: boolean };
+  // プレイヤーの動きに追従し続ける)。ただし自機が移動中は追尾せず、
+  // 直前の向きを保ったままnormalSpeed(通常弾と同じ速度)で直進する
+  // (bulletMotion.ts参照)。
+  | {
+      kind: "delayedHoming";
+      triggerAt: number;
+      speed: number;
+      turnRateRadPerSec: number;
+      triggered: boolean;
+      normalSpeed: number;
+    };
 
 export interface Bullet {
   id: number;
