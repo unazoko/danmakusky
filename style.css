@@ -1530,6 +1530,13 @@ body::before {
     font-size: 1.3rem;
     color: #7cf7ff;
 }
+/* MAX TL RATEの単位(notes/min)は数字の下に、項目名(dt)と同じ文字サイズ・
+   色で表示する。 */
+.result-stat-unit {
+    display: block;
+    font-size: 0.7rem;
+    color: #8fa3ad;
+}
 .high-score-line {
     margin: 0;
     font-size: 0.85rem;

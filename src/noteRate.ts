@@ -4,6 +4,9 @@ const WINDOW_MS = 12_000;
 
 export class NoteRateTracker {
   private timestamps: number[] = [];
+  // ラウンド中に観測した最大瞬間流量(結果画面表示用)。ratePerMinute()が
+  // 呼ばれるたびに更新する(main.tsではプレイ中の毎フレーム呼ばれている)。
+  private maxRatePerMinute = 0;
 
   record(now: number): void {
     this.timestamps.push(now);
@@ -12,7 +15,20 @@ export class NoteRateTracker {
 
   ratePerMinute(now: number): number {
     this.prune(now);
-    return Math.round((this.timestamps.length / WINDOW_MS) * 60_000);
+    const rate = Math.round((this.timestamps.length / WINDOW_MS) * 60_000);
+    if (rate > this.maxRatePerMinute) this.maxRatePerMinute = rate;
+    return rate;
+  }
+
+  getMaxRatePerMinute(): number {
+    return this.maxRatePerMinute;
+  }
+
+  // ラウンド開始時に呼ぶ(接続自体は維持したまま、そのラウンド分の
+  // 最大値だけをリセットする。直近の瞬間流量そのものは接続が続く限り
+  // 引き継いで問題ないのでtimestampsはリセットしない)。
+  resetMax(): void {
+    this.maxRatePerMinute = 0;
   }
 
   private prune(now: number): void {

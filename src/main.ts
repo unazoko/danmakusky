@@ -91,6 +91,7 @@ const gameOverCause = $<HTMLParagraphElement>("#gameOverCause");
 const resultScore = $<HTMLElement>("#resultScore");
 const resultTime = $<HTMLElement>("#resultTime");
 const resultGraze = $<HTMLElement>("#resultGraze");
+const resultPeakRateValue = $<HTMLElement>("#resultPeakRateValue");
 const hudGraze = $<HTMLSpanElement>("#hudGraze");
 const hudScoreBonus = $<HTMLSpanElement>("#hudScoreBonus");
 const highScoreLine = $<HTMLParagraphElement>("#highScoreLine");
@@ -713,6 +714,7 @@ function showGameOver(info: GameOverInfo): void {
   resultScore.textContent = info.score.toLocaleString();
   resultTime.textContent = formatTime(info.survivedMs);
   resultGraze.textContent = info.grazeCount.toLocaleString();
+  resultPeakRateValue.textContent = (noteRateTracker?.getMaxRatePerMinute() ?? 0).toLocaleString();
 
   const isNewHighScore = updateHighScore(info.score);
   highScoreLine.textContent = isNewHighScore
@@ -766,6 +768,9 @@ function startRound(now: number, presetShipImg: HTMLImageElement | null = null):
   gameScreen.hidden = false;
   resizeCanvas();
   playRandomBgm();
+  // 接続(noteRateTracker本体)はまたぐが、「最大瞬間流量」だけはこのラウンド分に
+  // リセットする(結果画面にはラウンドごとの値を出したいため)。
+  noteRateTracker?.resetMax();
 
   playerEmojiChosen = presetShipImg !== null;
   game = new GameState(
@@ -1323,6 +1328,7 @@ shareButton.onclick = () => {
     survivedMs: lastGameOverInfo.survivedMs,
     causeShortcode: lastGameOverInfo.causeShortcode,
     grazeCount: lastGameOverInfo.grazeCount,
+    maxNotesPerMinute: noteRateTracker?.getMaxRatePerMinute() ?? 0,
   });
   openMisskeyShareForm(text, location.href);
 };
@@ -1334,6 +1340,7 @@ shareBlueskyButton.onclick = () => {
     survivedMs: lastGameOverInfo.survivedMs,
     causeShortcode: lastGameOverInfo.causeShortcode,
     grazeCount: lastGameOverInfo.grazeCount,
+    maxNotesPerMinute: noteRateTracker?.getMaxRatePerMinute() ?? 0,
   });
   openBlueskyShareForm(text, location.href);
 };
@@ -1345,6 +1352,7 @@ shareXButton.onclick = () => {
     survivedMs: lastGameOverInfo.survivedMs,
     causeShortcode: lastGameOverInfo.causeShortcode,
     grazeCount: lastGameOverInfo.grazeCount,
+    maxNotesPerMinute: noteRateTracker?.getMaxRatePerMinute() ?? 0,
   });
   openXShareForm(text, location.href);
 };

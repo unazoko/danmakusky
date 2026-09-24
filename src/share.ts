@@ -24,6 +24,7 @@ export interface ShareResultInput {
   survivedMs: number;
   causeShortcode: string | null;
   grazeCount: number;
+  maxNotesPerMinute: number;
 }
 
 // 被撃墜理由は:shortcode:記法のまま埋め込む。共有先はユーザーが選ぶ任意の
@@ -39,6 +40,7 @@ export function buildMisskeyShareText(input: ShareResultInput): string {
     `TIME: ${formatTime(input.survivedMs)}`,
     `SCORE: ${input.score.toLocaleString()}`,
     `GRAZE: ${input.grazeCount.toLocaleString()}`,
+    `MTR: ${input.maxNotesPerMinute.toLocaleString()} notes/min`,
     `:${cause}: に撃墜されました。`,
     "--------------",
     "#DANMAKUSKY",
@@ -54,6 +56,7 @@ export function buildBlueskyShareText(input: ShareResultInput): string {
     `TIME: ${formatTime(input.survivedMs)}`,
     `SCORE: ${input.score.toLocaleString()}`,
     `GRAZE: ${input.grazeCount.toLocaleString()}`,
+    `MTR: ${input.maxNotesPerMinute.toLocaleString()} notes/min`,
     `:${cause}: に撃墜されました。`,
     "--------------",
     "#DANMAKUSKY",
@@ -69,6 +72,7 @@ export function buildXShareText(input: ShareResultInput): string {
     `TIME: ${formatTime(input.survivedMs)}`,
     `SCORE: ${input.score.toLocaleString()}`,
     `GRAZE: ${input.grazeCount.toLocaleString()}`,
+    `MTR: ${input.maxNotesPerMinute.toLocaleString()} notes/min`,
     `:${cause}: に撃墜されました。`,
     "--------------",
     "#DANMAKUSKY",
